@@ -1485,14 +1485,13 @@ final class Base extends Prefab implements ArrayAccess {
 						$this->hive['BODY']=file_get_contents('php://input');
 					ob_start();
 					// Call route handler
-					$result=$this->call($handler,array($args),
+					$result=$this->call($handler,array($this, $args),
 						'beforeroute,afterroute');
 					$body=ob_get_clean();
 					// Template Parsing
 					if ($this->hive['TEMPLATE']) {
 						$this->hive['RESPONSE'] = $body;
-						$body = Template::instance()->render(
-							$this->hive['TEMPLATE']);
+						$body = $this->send($this->hive['TEMPLATE'], true);
 						$search = array('</head>', '</body>');
 						$replace = array('', '');
 						$eol = "\n";
@@ -1589,6 +1588,24 @@ final class Base extends Prefab implements ArrayAccess {
 		}
 		return FALSE;
 	}
+
+    /**
+     * Send object view or array (as json)
+     * @param  mixed  $object  String view or array
+     * @param  boolean $return wether to return content or not
+     * @return string or nothing
+     */
+    public function send($object, $return = false)
+    {
+    	if (is_array($object))
+    		Helper::sendJson($object);
+
+        $content = Template::instance()->render($object.(
+                (strpos($object, '.')===false?'.html':'')));
+        if ($return)
+            return $content;
+        echo $content;
+    }
 
 	/**
 	*	Loop until callback returns TRUE (for long polling)
