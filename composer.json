@@ -5,8 +5,7 @@
 	"license": "MIT",
 	"require": {
 		"php": ">=5.3.6",
-		"catfan/Medoo": "0.9.8",
-		"wixel/gump": "dev-master"
+		"catfan/Medoo": "0.9.8"
 	},
 	"autoload": {
 		"psr-4": {
