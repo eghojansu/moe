@@ -2,7 +2,7 @@
 
 namespace moe\tools;
 
-use \moe\Base;
+use moe\Base;
 
 //! Session-based pseudo-mapper
 class Basket extends Magic {

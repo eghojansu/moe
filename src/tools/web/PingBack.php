@@ -2,10 +2,10 @@
 
 namespace moe\tools\web;
 
-use \moe\Base;
-use \moe\tools\Prefab;
-use \moe\tools\Web;
-use \DOMDocument;
+use moe\Base;
+use moe\tools\Prefab;
+use moe\tools\Web;
+use DOMDocument;
 
 //! Pingback 1.0 protocol (client and server) implementation
 class Pingback extends Prefab {

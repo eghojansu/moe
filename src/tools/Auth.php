@@ -2,7 +2,7 @@
 
 namespace moe\tools;
 
-use \moe\db\Cursor;
+use moe\db\Cursor;
 
 //! Authorization/authentication plug-in
 class Auth {

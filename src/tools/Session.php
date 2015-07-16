@@ -2,8 +2,8 @@
 
 namespace moe\tools;
 
-use \moe\Base;
-use \moe\Cache;
+use moe\Base;
+use moe\Cache;
 
 //! Cache-based session handler
 class Session {

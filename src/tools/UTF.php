@@ -2,8 +2,8 @@
 
 namespace moe\tools;
 
-use \moe\Base;
-use \moe\Prefab;
+use moe\Base;
+use moe\Prefab;
 
 //! Unicode string manager
 class UTF extends Prefab {

@@ -2,11 +2,11 @@
 
 namespace moe\tools\web;
 
-use \moe\Base;
-use \moe\Prefab;
-use \moe\tools\Web;
-use \DateTime;
-use \DateTimeZone;
+use moe\Base;
+use moe\Prefab;
+use moe\tools\Web;
+use DateTime;
+use DateTimeZone;
 
 //! Geo plug-in
 class Geo extends Prefab {

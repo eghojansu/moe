@@ -2,9 +2,9 @@
 
 namespace moe\tools;
 
-use \moe\Base;
-use \moe\Cache;
-use \moe\Prefab;
+use moe\Base;
+use moe\Cache;
+use moe\Prefab;
 
 //! Wrapper for various HTTP utilities
 class Web extends Prefab {

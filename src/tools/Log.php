@@ -2,7 +2,7 @@
 
 namespace moe\tools;
 
-use \moe\Base;
+use moe\Base;
 
 //! Custom logger
 class Log {

@@ -2,9 +2,9 @@
 
 namespace moe\tools;
 
-use \moe\Base;
-use \moe\Preview;
-use \ReflectionClass;
+use moe\Base;
+use moe\Preview;
+use ReflectionClass;
 
 //! XML-style template engine
 class Template extends Preview {

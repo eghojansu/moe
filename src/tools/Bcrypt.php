@@ -2,7 +2,7 @@
 
 namespace moe\tools;
 
-use \moe\Prefab;
+use moe\Prefab;
 
 //! Lightweight password hashing library
 class Bcrypt extends Prefab {

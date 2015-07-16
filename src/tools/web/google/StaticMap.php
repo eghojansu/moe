@@ -2,8 +2,8 @@
 
 namespace moe\tools\web\google;
 
-use \moe\Base;
-use \moe\tools\Web;
+use moe\Base;
+use moe\tools\Web;
 
 //! Google Static Maps API v2 plug-in
 class StaticMap {
