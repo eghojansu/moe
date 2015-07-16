@@ -2,7 +2,7 @@
 
 namespace moe;
 
-use moe\tools\Template;
+use tools\Template;
 use \ReflectionClass;
 use \ReflectionProperty;
 use \ArrayAccess;
