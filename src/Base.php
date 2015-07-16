@@ -2,10 +2,10 @@
 
 namespace moe;
 
-use tools\Template;
-use \ReflectionClass;
-use \ReflectionProperty;
-use \ArrayAccess;
+use moe\tools\Template;
+use ReflectionClass;
+use ReflectionProperty;
+use ArrayAccess;
 
 //! Base structure
 final class Base extends Prefab implements ArrayAccess {

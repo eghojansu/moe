@@ -2,8 +2,8 @@
 
 namespace moe\tools;
 
-use \moe\Base;
-use \ArrayAccess;
+use moe\Base;
+use ArrayAccess;
 
 //! PHP magic wrapper
 abstract class Magic implements ArrayAccess {

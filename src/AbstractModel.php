@@ -2,7 +2,7 @@
 
 namespace moe;
 
-use \medoo;
+use medoo;
 
 abstract class AbstractModel extends medoo
 {

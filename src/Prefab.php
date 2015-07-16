@@ -2,7 +2,7 @@
 
 namespace moe;
 
-use \Reflectionclass;
+use Reflectionclass;
 
 //! Factory class for single-instance objects
 abstract class Prefab {

@@ -2,9 +2,9 @@
 
 namespace moe\tools\web;
 
-use \moe\Base;
-use \moe\tools\Magic;
-use \moe\tools\Web;
+use moe\Base;
+use moe\tools\Magic;
+use moe\tools\Web;
 
 //! OpenID consumer
 class OpenID extends Magic {

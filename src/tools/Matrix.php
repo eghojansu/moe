@@ -2,7 +2,7 @@
 
 namespace moe\tools;
 
-use \moe\Prefab;
+use moe\Prefab;
 
 //! Generic array utilities
 class Matrix extends Prefab {

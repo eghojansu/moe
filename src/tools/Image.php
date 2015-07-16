@@ -2,7 +2,7 @@
 
 namespace moe\tools;
 
-use \moe\Base;
+use moe\Base;
 
 //! Image manipulation tools
 class Image {

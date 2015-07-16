@@ -2,7 +2,7 @@
 
 namespace moe;
 
-use \GUMP;
+use GUMP;
 
 class Validator extends GUMP
 {

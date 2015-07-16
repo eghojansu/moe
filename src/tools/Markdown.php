@@ -2,8 +2,8 @@
 
 namespace moe\tools;
 
-use \moe\Base;
-use \moe\Prefab;
+use moe\Base;
+use moe\Prefab;
 
 //! Markdown-to-HTML converter
 class Markdown extends Prefab {
