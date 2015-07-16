@@ -15,7 +15,8 @@ class AbstractController
     public function render($object, $return = false)
     {
         $content = is_array($object)?json_encode($object):
-            Template::instance()->render($object);
+            Template::instance()->render($object.(
+                (strpos($object, '.')===false?'.html':'')));
         if ($return)
             return $content;
         echo $content;
