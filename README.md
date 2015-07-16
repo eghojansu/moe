@@ -11,3 +11,4 @@ A PHP framework based on [Fatfree Framework](http://fatfreeframework.com)
 
 ## Depends
 - [Medoo Database Framework](https://github.com/catfan/Medoo)
+- [Wixel/GUMP](https://github.com/Wixel/GUMP) Validator
