@@ -4,7 +4,7 @@ namespace moe;
 
 use moe\tools\Template;
 
-class AbstractController
+abstract class AbstractController
 {
     /**
      * Send object view or array (as json)
