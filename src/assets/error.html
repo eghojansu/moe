@@ -1,0 +1,23 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' name='viewport' />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>{{ @ERROR.code }} {{ @ERROR.status }}</title>
+<style>{{ @ASSETS.error.style.@ASSETS.error.code }}</style>
+</head>
+<body>
+<div class="hc-container">
+	<div class="hc-content">
+	    <h1>{{ @ERROR.status }}</h1>
+	    <p>{{ @ERROR.text?:@REQUEST }}</p>
+	    <p>
+	    	<a href="{{ @BASEURL }}" class="button">Home</a>
+	    </p>
+	    <check if="{{ @DEBUG }}">
+	    <pre class="trace">{{ @ERROR.trace | decode }}</pre>
+	    </check>
+	</div>
+</div>
+</body>
+</html>
