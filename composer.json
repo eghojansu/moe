@@ -4,13 +4,12 @@
 	"homepage": "https://github.com/eghojansu/moe",
 	"license": "MIT",
 	"require": {
-		"php": ">=5.3.6",
-		"catfan/Medoo": "0.9.8",
-		"wixel/gump": "dev-master"
+		"php": ">=5.3.6"
 	},
 	"autoload": {
 		"psr-4": {
-			"moe\\":"src/"
+			"moe\\":"src/",
+			"tests\\":"tests/"
 		}
 	},
 	"minimum-stability": "dev"

@@ -2,10 +2,9 @@
 
 namespace moe;
 
-use moe\tools\Template;
+use ArrayAccess;
 use ReflectionClass;
 use ReflectionProperty;
-use ArrayAccess;
 
 //! Base structure
 final class Base extends Prefab implements ArrayAccess {
@@ -74,6 +73,7 @@ final class Base extends Prefab implements ArrayAccess {
             ),
         //! Syntax highlighting stylesheet
         CSS='assets/code.css',
+        CSS_LAYOUT='assets/error_style.css',
         //! Assets token
         ASSETS_HEAD = 'CSS|HEAD.JS|STYLE|HEAD.SCRIPT.LOAD|HEAD.SCRIPT.READY',
         ASSETS_BODY = 'BODY.JS|BODY.SCRIPT.LOAD|BODY.SCRIPT.READY';
@@ -189,7 +189,7 @@ final class Base extends Prefab implements ArrayAccess {
      * Site Url
      */
     public function siteUrl($url) {
-        return $this->hive['BASEURL'] . ($this->get($url)?:$url);
+        return $this->hive['BASEURL'] . $url;
     }
 
     /**
@@ -207,9 +207,9 @@ final class Base extends Prefab implements ArrayAccess {
     public function assets($name, $value)
     {
     	if (!preg_match('#'.preg_quote(self::ASSETS_HEAD.'|'.
-    		self::ASSETS_BODY).'#'))
+    		self::ASSETS_BODY).'#i', $name))
     		user_error(sprintf(self::E_Assets, $name));
-    	$name = 'ASSETS.'.$name;
+    	$name = 'ASSETS.'.strtoupper($name);
     	$this->set($name, array_merge($this->get($name)?:array(),
     		is_array($value)?$value:array($value)));
     }
@@ -1151,11 +1151,13 @@ final class Base extends Prefab implements ArrayAccess {
 		$req=$this->hive['VERB'].' '.$this->hive['PATH'];
 		if (!$text)
 			$text='HTTP '.$code.' ('.$req.')';
-		error_log($text);
+		$logger = new Log('error');
+		$logger->write($text);
 		$trace=$this->trace($trace);
 		foreach (explode("\n",$trace) as $nexus)
 			if ($nexus)
-				error_log($nexus);
+				$logger->write($nexus);
+		unset($logger);
 		if ($highlight=PHP_SAPI!='cli' && !$this->hive['AJAX'] &&
 			$this->hive['HIGHLIGHT'] && is_file($css=__DIR__.'/'.self::CSS))
 			$trace=$this->highlight($trace);
@@ -1178,8 +1180,8 @@ final class Base extends Prefab implements ArrayAccess {
                 isset($views['fallback']) || user_error(self::E_fallback);
                 $view = isset($views[$code])?$views[$code]:$views['fallback'];
                 $this->set('ASSETS.error.code', ($highlight?($this->read($css)):''));
-                !(is_file($css=__DIR__.'/assets/error_style.css')) ||
-                	$this->set('ASSETS.error.style', $this->read($css));
+                !(is_file($css=__DIR__.'/'.self::CSS_LAYOUT)) ||
+                	$this->set('ASSETS.error.layout', $this->read($css));
                 $this->concat('UI', ';'.$this->fixslashes(__DIR__).'/');
                 echo Template::instance()->render($view);
             }
@@ -1496,7 +1498,7 @@ final class Base extends Prefab implements ArrayAccess {
 						$replace = array('', '');
 						$eol = "\n";
 						foreach (explode('|', self::ASSETS_HEAD) as $assets) {
-							if (!$assets_list = $this->get($assets))
+							if (!$assets_list = $this->get('ASSETS.'.$assets))
 								continue;
 							!$replace[0] || $replace[0] .= $eol;
 							switch ($assets) {
@@ -1512,12 +1514,20 @@ final class Base extends Prefab implements ArrayAccess {
 										'</'.$tag.'>';
 									break;
 								default:
-									$replace[0] .= implode($eol, $assets_list);
+									$replace[0] .= $assets='CSS'?
+										'<link rel="stylesheet" href="'.
+											implode('">'.$eol.
+											'<link rel="stylesheet" href="',
+										$assets_list).'">'.$eol:
+										'<script src="'.
+											implode('"></script>'.$eol.
+											'<script src="',
+										$assets_list).'"></script>'.$eol;
 									break;
 							}
 						}
 						foreach (explode('|', self::ASSETS_BODY) as $assets) {
-							if (!$assets_list = $this->get($assets))
+							if (!$assets_list = $this->get('ASSETS.'.$assets))
 								continue;
 							!$replace[1] || $replace[1] .= $eol;
 							switch ($assets) {
@@ -1531,7 +1541,10 @@ final class Base extends Prefab implements ArrayAccess {
 										'</script>';
 									break;
 								default:
-									$replace[1] .= implode($eol, $assets_list);
+									$replace[1] .= '<script src="'.
+											implode('"></script>'.$eol.
+											'<script src="',
+										$assets_list).'"></script>'.$eol;
 									break;
 							}
 						}
@@ -1598,13 +1611,102 @@ final class Base extends Prefab implements ArrayAccess {
     public function send($object, $return = false)
     {
     	if (is_array($object))
-    		Helper::sendJson($object);
+    		$this->sendJson($object);
 
         $content = Template::instance()->render($object.(
                 (strpos($object, '.')===false?'.html':'')));
         if ($return)
             return $content;
         echo $content;
+    }
+
+    /**
+     * Output the data
+     * @param  mixed  $data
+     * @param  bool $exit wether to exit after dumping or not
+     */
+    public function pre($data, $exit = false)
+    {
+        echo '<pre>';
+        print_r($data);
+        echo '</pre>';
+        !$exit || exit(str_repeat('<br>', 2).' '.$exit);
+        echo '<hr>';
+    }
+
+    /**
+     * Send Json
+     * @param  mixed $data data to send
+     */
+    public function sendJson($data)
+    {
+        header('Content-Type: application/json');
+        echo is_array($data)?json_encode($data):$data;
+        exit(0);
+    }
+
+    /**
+     * Parse body from PUT method
+     * @source https://gist.github.com/chlab/4283560
+     *
+     * @return array data and files
+     */
+    public function parseBody()
+    {
+        $result = array(
+            'data'=>array(),
+            'files'=>array(),
+            );
+
+         // read incoming data
+        $input = Instance::get('BODY');
+
+        // grab multipart boundary from content type header
+        preg_match('/boundary=(.*)$/', $_SERVER['CONTENT_TYPE'], $matches);
+
+        // content type is probably regular form-encoded
+        if (!count($matches)) {
+            // we expect regular puts to containt a query string containing data
+            parse_str($input, $result['data']);
+        } else {
+            $boundary = $matches[1];
+            // split content by boundary and get rid of last -- element
+            $a_blocks = preg_split("/-+$boundary/", $input);
+            array_pop($a_blocks);
+
+            // loop data blocks
+            foreach ($a_blocks as $id => $block) {
+                if (empty($block))
+                    continue;
+                // you'll have to var_dump $block to understand this and maybe replace \n or \r with a visibile char
+                // parse uploaded files
+                if (strpos($block, 'application/octet-stream') !== FALSE) {
+                    // match "name", then everything after "stream" (optional) except for prepending newlines
+                    // preg_match("/name=\"([^\"]*)\".*stream[\n|\r]+([^\n\r].*)?$/s", $block, $matches);
+                    // $a_data['files'][$matches[1]] = isset($matches[2])?$matches[2]:null;
+                }
+                // parse all other fields
+                else {
+                    // match "name" and optional value in between newline sequences
+                    if (strpos($block, 'filename="')===false) {
+                        preg_match('/name=\"([^\"]*)\"[\n|\r]+([^\n\r].*)?\r$/s', $block, $matches);
+                        $result['data'][$matches[1]] = isset($matches[2])?$matches[2]:null;
+                    } else {
+                        preg_match('/; name=\"([^\"]*)\"; filename=\"([^\"]*)\"\s*Content\-Type: ([\w\/]+)[\n|\r]+([^\n\r].*)?\r$/s', $block, $matches);
+                        $result['files'][$matches[1]] = array(
+                            'name' => $matches[2],
+                            'type' => $matches[3],
+                            'tmp_name' => tempnam( ini_get( 'upload_tmp_dir' ), 'php' ),
+                            'error' => UPLOAD_ERR_OK,
+                            'size' => 0);
+                        $result['files'][$matches[1]]['size'] = file_put_contents($result['files'][$matches[1]]['tmp_name'], $matches[4]);
+                        $result['files'][$matches[1]]['size']!==false || $result['files'][$matches[1]]['error'] = UPLOAD_ERR_CANT_WRITE;
+                    }
+                }
+            }
+        }
+
+        return $result;
     }
 
 	/**
@@ -2051,7 +2153,7 @@ final class Base extends Prefab implements ArrayAccess {
 		ini_set('default_charset',$charset='UTF-8');
 		if (extension_loaded('mbstring'))
 			mb_internal_encoding($charset);
-		// ini_set('display_errors',0);
+		ini_set('display_errors',0);
 		// Deprecated directives
 		@ini_set('magic_quotes_gpc',0);
 		@ini_set('register_globals',0);
@@ -2189,6 +2291,7 @@ final class Base extends Prefab implements ArrayAccess {
 			'ROOT'=>$_SERVER['DOCUMENT_ROOT'],
 			'ROUTES'=>array(),
 			'SCHEME'=>$scheme,
+			'SECRETKEY'=>'',
 			'SERIALIZER'=>extension_loaded($ext='igbinary')?$ext:'php',
 			'TEMP'=>'./runtime/',
 			'TEMPLATE'=>'',

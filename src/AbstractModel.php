@@ -2,75 +2,762 @@
 
 namespace moe;
 
-use medoo;
+use Exception;
+use PDO;
 
-abstract class AbstractModel extends medoo
+/**
+ * This class require all fields in lowercase
+ */
+abstract class AbstractModel extends Prefab
 {
-    const
-        //! Configuration not valid
-        E_Config = 'Incorrect database configuration';
+    //! select Builder
+    protected $select = array(
+        'select' => '',
+        'from'   => '',
+        'where'  => '',
+        'group'  => '',
+        'having' => '',
+        'order'  => '',
+        'limit'  => '',
+        'offset' => '',
+        'params' => array(),
+        );
+    //! Model
+    protected $schema = array(
+        //! PK field and alias
+        'pk'  =>array(),
+        //! Pair field and alias
+        'fields'  =>array(),
+        //! Pair field and filter
+        'filters' =>array(),
+        //! Pair field and value
+        'init'    =>array(),
+        'values'  =>array(),
+        //! Other/updated values
+        'others'  =>array(),
+        );
+    protected $disableValidation = false;
 
-    //! Validator
-    public $validator;
+    protected $logs = array();
+    protected $errors = array();
+    protected $messages = array();
+
+    //! Statement handle
+    protected $stmt;
+
+    const
+        E_Method = 'Method doesn\'t exists',
+        E_Param = 'Field %s: not enough parameters',
+        E_Data = 'No data provided',
+        E_Invalid = 'Invalid parameter',
+        E_Query = 'Query error',
+        E_Record = 'No record to fetch anymore',
+        E_PrimaryKey = 'Primary key was no defined';
 
     /**
-     * Returns model filter
-     * Format see Validator Class
+     * Returns fields pair with its alias an its filter/sanitizer
+     * Format:
+     *   array(
+     *       fieldname=>array(
+     *           alias,
+     *           filter, // must be array
+     *           default value
+     *       )
+     *   )
      *
      * @param  array  $filter [description]
-     * @return [type]         [description]
+     * @return array        [description]
      */
-    public function filter()
-    {
-        return array();
-    }
+    abstract protected function schema();
 
-    public static function instance()
+    /**
+     * Return primary key
+     */
+    abstract public function primaryKey();
+
+    /**
+     * Return table name
+     */
+    abstract public function table();
+
+    /**
+     * Get db instance
+     */
+    public function db()
     {
-        if (!Registry::exists($class=get_called_class())) {
-            $ref=new Reflectionclass($class);
-            $args=func_get_args();
-            Registry::set($class,
-                $args?$ref->newinstanceargs($args):new $class);
-        }
-        return Registry::get($class);
+        return DB::instance();
     }
 
     /**
-     * $config follow medoo database framework configuration
-     * Default read DATABASE vars
-     *
-     * // required
-     * 'database_type' => 'mysql',
-     *
-     * // required if mysql
-     * 'database_name' => 'name',
-     * 'username' => 'your_username',
-     * 'password' => 'your_password',
-     *
-     * // required if sqlite
-     * 'database_file'=>'db_filename'
-     *
-     * // optional
-     * 'server' => 'localhost', // default localhost
-     * 'charset' => 'utf8', // default base ENCODING
-     * 'port' => 3306, // default 3306
-     *
-     * @param array $config database configuration
+     * Save
      */
-    public function __construct(array $config = array())
+    public function save(array $data = array())
     {
-        $fw = Base::instance();
-        $config || $config = $fw->get('DATABASE');
-        if (!isset($config['database_type'], $config['database_name'],
-                   $config['username'], $config['password']))
-            user_error(E_Config);
-        (isset($config['server']) || $config['database_type']=='sqlite') ||
-            $config['server'] = 'localhost';
-        (isset($config['charset'])) ||
-            $config['charset'] = $fw->get('ENCODING')?:'utf8';
-        parent::__construct($config);
-        $this->debug_mode = (bool) $fw->get('DEBUG');
-        $this->validator = new Validator($this->rules());
+        $this->dry()?$this->insert($data):$this->update($data);
+    }
+
+    /**
+     * Insert, on duplicate key update
+     */
+    public function insert(array $data = array(), $update = false)
+    {
+        $data = array_merge($this->schema['values'], $this->schema['others'], $data);
+        if (empty($data))
+            throw new Exception(self::E_Data, 1);
+
+        $params = array();
+        foreach ($data as $key => $value)
+            if (in_array($key, $this->schema['pk']) && !$value)
+                continue;
+            elseif (is_array($value))
+                throw new Exception(self::E_Invalid, 1);
+            elseif (isset($this->schema['fields'][$key]))
+                $params[':'.$key] = $value;
+
+        if ($update && !$this->schema['pk'])
+            throw new Exception(self::E_PrimaryKey, 1);
+
+        $query = $this->buildInsert($params, $update);
+
+        if (!$this->validate($params))
+            return false;
+
+        $result = $this->run($query, $params);
+        $this->assign($params);
+
+        return $result;
+    }
+
+    /**
+     * Update, only when there is primary key
+     */
+    public function update(array $data = array(), array $criteria = array())
+    {
+        $data = array_merge($this->schema['others'], $data);
+        if (empty($data))
+            throw new Exception(self::E_Data, 1);
+
+        $params = array();
+        foreach ($data as $key => $value)
+            if (is_array($value))
+                throw new Exception(self::E_Invalid, 1);
+            elseif (isset($this->schema['fields'][$key]))
+                $params[':'.$key] = $value;
+
+        $query = $this->buildUpdate($params, $criteria);
+
+        if (!$this->validate($params))
+            return false;
+
+        $result = $this->run($query, $params);
+        $this->assign($params);
+
+        return $result;
+    }
+
+    public function validate(array &$params)
+    {
+        if ($this->disableValidation)
+            return true;
+        foreach ($params as $token => $value)
+            if (!$this->performValidate(str_replace(':', '', $token), $params[$token]))
+                return false;
+        return true;
+    }
+
+    public function disableValidation()
+    {
+        $this->disableValidation = true;
+        return $this;
+    }
+
+    /**
+     * delete, only when there is primary key
+     */
+    public function delete(array $criteria = array())
+    {
+        $query = $this->buildDelete($criteria);
+        $result = $this->run($query, $criteria);
+        $this->next();
+
+        return $result;
+    }
+
+    /**
+     * Get data
+     */
+    public function cast()
+    {
+        return $this->schema['values'];
+    }
+
+    /**
+     * Get next row and Assign row to schema values
+     */
+    public function next()
+    {
+        if ($this->hasError())
+            throw new Exception(self::E_Query, 1);
+        $row = $this->stmt->fetch(PDO::FETCH_ASSOC);
+        $this->assign($row?:array());
+        return $this;
+    }
+
+    /**
+     * Get count
+     */
+    public function count($force = false)
+    {
+        if ($this->stmt && !$force)
+            return $this->stmt->rowCount();
+        $this->select('count(*) as total', true);
+        $query = $this->buildSelect($params);
+        $this->run($query, $params);
+        return $this->stmt->fetchColumn(0);
+    }
+
+    /**
+     * Get resultset
+     */
+    public function get($limit = 0)
+    {
+        $this->limit($limit);
+        $query = $this->buildSelect($params);
+        $this->run($query, $params);
+        return $this->next();
+    }
+
+    /**
+     * Get all
+     */
+    public function all($obj = false, $limit = 0)
+    {
+        $this->limit($limit);
+        $query = $this->buildSelect($params);
+        $this->run($query, $params);
+        return $this->stmt->fetchAll($obj?PDO::FETCH_OBJ:PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Paging
+     */
+    public function page($page = 1, $limit = 10)
+    {
+        $this->limit($limit)->offset($page*$limit-$limit);
+        $query = $this->buildSelect($params);
+        $this->run($query, $params);
+        $this->limit(0)->offset(0);
+        return array(
+            'data'=>$this->stmt->fetchAll(PDO::FETCH_ASSOC),
+            'total'=>$this->count(true),
+            'page'=>$page,
+            );
+    }
+
+    /**
+     * Find
+     */
+    public function find($criteria, array $values = array())
+    {
+        return $this->select()->where($criteria, $values);
+    }
+
+    /**
+     * Find by PK
+     */
+    public function findByPK()
+    {
+        $pk = func_get_args();
+        if (!$this->schema['pk'] || !$pk)
+            throw new Exception(self::E_PrimaryKey, 1);
+
+        !is_array(reset($pk)) || $pk = array_shift($pk);
+        $criteria = $values = array();
+        foreach ($this->schema['pk'] as $field) {
+            $token = ':'.$field;
+            $criteria[] = $field.'='.$token;
+            $values[$token] = isset($pk[$field])?$pk[$field]:array_shift($pk);
+        }
+        return $this->find(implode(' and ', $criteria), $values);
+    }
+
+    /**
+     * Select
+     */
+    public function select($fields = '*', $overwrite = false)
+    {
+        if ($overwrite)
+            $this->select[__FUNCTION__] = $fields;
+        else
+            $this->select[__FUNCTION__] .= $fields;
+        return $this;
+    }
+
+    /**
+     * Where
+     */
+    public function where($criteria, array $values = array(), $before = 'AND')
+    {
+        $this->select[__FUNCTION__] .= ($this->select[__FUNCTION__]?
+            ' '.$before.' ':'').trim($criteria);
+        $this->select['params'] = array_merge($this->select['params'], $values);
+        return $this;
+    }
+
+    /**
+     * Group by
+     */
+    public function group($columns)
+    {
+        !$columns || $this->select[__FUNCTION__] .= ($this->select[__FUNCTION__]?
+            ' ':'').trim($columns);
+        return $this;
+    }
+
+    /**
+     * Having
+     */
+    public function having($criteria, array $values = array(), $before = 'AND')
+    {
+        $this->select[__FUNCTION__] .= ($this->select[__FUNCTION__]?
+            ' '.$before.' ':'').trim($where);
+        $this->select['params'] = array_merge($this->select['params'], $values);
+        return $this;
+    }
+
+    /**
+     * Order by
+     */
+    public function order($columns)
+    {
+        !$columns || $this->select[__FUNCTION__] .= ($this->select[__FUNCTION__]?
+            ' ':'').trim($columns);
+        return $this;
+    }
+
+    /**
+     * Limit
+     */
+    public function limit($limit)
+    {
+        !$limit || $this->select[__FUNCTION__] = $limit;
+        return $this;
+    }
+
+    /**
+     * Offset
+     */
+    public function offset($offset)
+    {
+        $this->select[__FUNCTION__] = $offset;
+        return $this;
+    }
+
+    /**
+     * Return fields schema
+     * @return array fields schema
+     */
+    public function fields()
+    {
+        return $this->schema[__FUNCTION__];
+    }
+
+    /**
+     * Check weather
+     */
+    public function dry()
+    {
+        return count(array_filter($this->schema['values']))==0;
+    }
+
+    /**
+     * Get last query
+     */
+    public function lastQuery()
+    {
+        return end($this->logs);
+    }
+
+    /**
+     * Get log
+     */
+    public function log()
+    {
+        return $this->logs;
+    }
+
+    /**
+     * Has error
+     */
+    public function hasError()
+    {
+        return count($this->errors)>0;
+    }
+
+    /**
+     * Get error
+     */
+    public function error()
+    {
+        return $this->errors;
+    }
+
+    /**
+     * Has message
+     */
+    public function hasMessage()
+    {
+        return count($this->messages)>0;
+    }
+
+    /**
+     * Get message
+     */
+    public function message()
+    {
+        return $this->messages;
+    }
+
+    /**
+     * Get validation object
+     */
+    public function validation()
+    {
+        return Validation::instance();
+    }
+
+    /**
+     * Reset
+     */
+    public function reset($what = 'values')
+    {
+        switch ($what) {
+            case 'select':
+                foreach ($this->{$what} as $key => $value)
+                    $this->{$what}[$key] = is_array($value)?array():'';
+                break;
+            default:
+                $this->schema['values'] = $this->schema['init'];
+                $this->schema['others'] = array();
+                break;
+        }
+    }
+
+    /**
+     * Perform validation
+     * We can use method in Base class or any method with full name call but
+     * you need to define a message to override default message
+     * Be aware when use a method
+     */
+    protected function performValidate($key, &$value)
+    {
+        if (!$filter = $this->schema['filter'][$key])
+            return true;
+        $validation = Validation::instance();
+        $moe = Base::instance();
+        $field = $this->schema['fields'][$key];
+        foreach ($filter as $func => $param) {
+            if (is_numeric($func)) {
+                $func = $param;
+                $args = array();
+            } else
+                $args = array($param);
+            $function = $func;
+            if (method_exists($this, $func))
+                $func = array($this, $func);
+            elseif (method_exists($validation, $func))
+                $func = array($validation, $func);
+            elseif (method_exists($moe, $func))
+                $func = array($moe, $func);
+            array_unshift($args, $value);
+            if (false === $result = $moe->call($func, $args)) {
+                $this->messages[] = $validation->message($function, $field, $value, $param);
+                return false;
+            } else
+                is_bool($result) || $value = $result;
+        }
+        return true;
+    }
+
+    /**
+     * Assign
+     */
+    protected function assign(array $data)
+    {
+        foreach ($data as $key => $value) {
+            $key = str_replace(':', '', $key);
+            if (isset($this->schema['fields'][$key]))
+                $this->schema['values'][$key] = $value;
+            else
+                $this->schema['others'][$key] = $value;
+        }
+    }
+
+    /**
+     * Run query from builder
+     */
+    protected function run($query, $params)
+    {
+        $this->stmt = $this->db()->pdo->prepare($query);
+        $this->stmt->execute($params);
+        if ($this->stmt->errorCode()!='00000') {
+            $this->errors[] = $this->stmt->errorInfo();
+            if (Instance::get('DEBUG'))
+                throw new Exception(self::E_Query);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * insert Builder
+     */
+    protected function buildInsert(&$params, $update)
+    {
+        $values = implode(',', array_keys($params));
+        $query  = 'insert into '.$this->table().' ('.
+            str_replace(':', '', $values).') values ('.
+            $values.')';
+        if ($update) {
+            $update = array();
+            foreach ($params as $token=>$value) {
+                $field = str_replace(':', '', $token);
+                in_array($field, $this->schema['pk']) || $update[] = $field.'='.$token;
+            }
+            $query .= ' on duplicate key update '.implode(',', $update);
+        }
+        $this->logs[] = $query;
+        return $this->lastQuery();
+    }
+
+    /**
+     * update Builder
+     */
+    protected function buildUpdate(&$params, array $criteria = array())
+    {
+        $query  = 'update '.$this->table().' set ';
+        foreach ($params as $token=>$value) {
+            $field = str_replace(':', '', $token);
+            $query .= $field.'='.$token.',';
+        }
+        $where = $where_param = array();
+        if ($criteria) {
+            foreach ($criteria as $field=>$value) {
+                $token = ':'.$field.'_where';
+                $where[] = $field.'='.$token;
+                $where_param[$token] = $value;
+            }
+        } elseif (!$this->dry()) {
+            foreach ($this->schema['pk'] as $field) {
+                $token = ':'.$field.'_where';
+                $where[] = $field.'='.$token;
+                $where_param[$token] = $this->schema['values'][$field];
+            }
+        }
+        if (!$where)
+            throw new Exception(self::E_PrimaryKey, 1);
+        $params = array_merge($params, $where_param);
+        $query = rtrim($query, ',').' where '.implode(' and ', $where);
+        $this->logs[] = $query;
+        return $this->lastQuery();
+    }
+
+    /**
+     * delete Builder
+     */
+    protected function buildDelete(array &$criteria = array())
+    {
+        $where = $where_param = array();
+        if ($criteria) {
+            foreach ($criteria as $field=>$value) {
+                $token = ':'.$field.'_where';
+                $where[] = $field.'='.$token;
+                $where_param[$token] = $value;
+            }
+        } elseif (!$this->dry()) {
+            foreach ($this->schema['pk'] as $field) {
+                $token = ':'.$field.'_where';
+                $where[] = $field.'='.$token;
+                $where_param[$token] = $this->schema['values'][$field];
+            }
+        }
+        if (!$where)
+            throw new Exception(self::E_PrimaryKey, 1);
+        $criteria = $where_param;
+        $query = 'delete from '.$this->table().' where '.implode(' and ', $where);
+        $this->logs[] = $query;
+        return $this->lastQuery();
+    }
+
+    /**
+     * select Builder
+     */
+    protected function buildSelect(&$params = array())
+    {
+        $this->select['select']  || $this->select();
+        $cp     = $this->select;
+        $params = $cp['params'];
+        unset($cp['params']);
+        !$cp['where']  || $cp['where']  = ' where '    .trim($cp['where']);
+        !$cp['group']  || $cp['group']  = ' group by ' .trim($cp['group']);
+        !$cp['having'] || $cp['having'] = ' having '   .trim($cp['having']);
+        !$cp['limit']  || $cp['limit']  = ' limit '    .trim($cp['limit']);
+        !$cp['offset'] || $cp['offset'] = ' offset '   .trim($cp['offset']);
+
+        $cp['select']  = 'select '.trim($cp['select']);
+        $cp['from']    = ' from '.$this->table();
+        $this->logs[]  = implode("\n", array_filter($cp));
+        return $this->lastQuery();
+    }
+
+    /**
+     * Translate param
+     */
+    protected function translateParam($method, array $args)
+    {
+        if (!(strpos($method, $find='update')===0 ||
+              strpos($method, $find='deleteBy')==0))
+            return false;
+
+        $params = array();
+        $columns = explode('_', Instance::snakecase(str_replace('_', '-',
+            lcfirst(str_replace($find, '', $method)))));
+        for ($pointer = 0, $last = count($columns); $pointer < $last; $pointer++) {
+            $column = str_replace('-', '_', $columns[$pointer]);
+            if (!$args)
+                throw new Exception(sprintf(self::E_Param, $column), 1);
+            $params[$column] = array_shift($args);
+        }
+        return $params;
+    }
+
+    /**
+     * Translate Criteria
+     */
+    protected function translateCriteria($method, array $args)
+    {
+        if (strpos($method, $find='findBy')!==0)
+            return false;
+
+        $result = array(
+            'criteria'=>'',
+            'params'=>array()
+            );
+        $columns = explode('_', Instance::snakecase(str_replace('_', '-',
+            lcfirst(str_replace($find, '', $method)))));
+        $n_token = 'not';
+        $p_token = 'and or';
+        $o_token = 'in between like begin end';
+        for ($pointer = 0, $last = count($columns); $pointer < $last; $pointer++) {
+            $column = str_replace('-', '_', $columns[$pointer]);
+            if ($this->inToken($column, $n_token.' '.$p_token.' '.$o_token))
+                continue;
+            if (!$args)
+                throw new Exception(sprintf(self::E_Param, $column), 1);
+            $negation = (isset($columns[$pointer-1]) && $this->inToken($columns[$pointer-1], $n_token));
+            $punc     = 'and';
+            $operator = ($negation?'!':'').'=';
+            $params   = array();
+            $token    = ':'.$column;
+            if (isset($columns[$pointer+1])) {
+                // bisa jadi punc or opr
+                $next = $columns[$pointer+1];
+                if ($this->inToken($next, $p_token)) {
+                    $punc = $next;
+                } elseif ($this->inToken($next, $o_token)) {
+                    switch ($next) {
+                        case 'in': # in (:field1, :field2, ..., :fieldn)
+                            $operator = ($negation?'not ':'').$next;
+                            $arg = array_shift($args);
+                            is_array($arg) || $arg = array($arg);
+                            $i = 1;
+                            $token = '(';
+                            foreach ($arg as $value) {
+                                $t = ':'.$column.$i++;
+                                $token .= $t.',';
+                                $params[$t] = $value;
+                            }
+                            $token = rtrim($token,',').')';
+                            break;
+                        case 'between': # between :field1 and :field2
+                            $operator = ($negation?'not ':'').$next;
+                            $arg = array_shift($args);
+                            is_array($arg) || $arg = array($arg);
+                            if (count($arg)<2)
+                                throw new Exception(sprintf(self::E_Param, $column), 1);
+                            $token = ':'.$column.'1 and :'.$column.'2';
+                            $params[':'.$column.'1'] = array_shift($arg);
+                            $params[':'.$column.'2'] = array_shift($arg);
+                            break;
+                        case 'like': # %:field%
+                        case 'begin': # :field%
+                        case 'end': # %:field*/
+                            $operator = ($negation?'not ':'').'like';
+                            $params[$token] = ($next=='begin'?'':'%').
+                                              array_shift($args).
+                                              ($next=='end'?'':'%');
+                            break;
+                    }
+                }
+            }
+            if (isset($columns[$pointer+2]) && $this->inToken($columns[$pointer+2], $p_token)) {
+                $punc = $columns[$pointer+2];
+            }
+            $params || $params[$token] = array_shift($args);
+            $result['criteria'] .= ' '.$column.' '.$operator.' '.$token.' '.$punc;
+            $result['params'] = array_merge($result['params'], $params);
+        }
+        $result['criteria'] = preg_replace('/ (and|or)$/i', '', $result['criteria']);
+        return $result;
+    }
+
+    protected function inToken($what, $token)
+    {
+        return in_array($what, explode(' ', $token));
+    }
+
+    public function __isset($var)
+    {
+        return (isset($this->schema['values'][$var]) ||
+                isset($this->schema['others'][$var]));
+    }
+
+    public function __set($var, $val)
+    {
+        $this->schema['others'][$var] = $val;
+    }
+
+    public function __get($var)
+    {
+        return isset($this->schema['values'][$var])?
+                     $this->schema['values'][$var]:(
+                isset($this->schema['others'][$var])?
+                      $this->schema['others'][$var]:null);
+    }
+
+    public function __call($method, array $args)
+    {
+        if (false!==($find = $this->translateCriteria($method, $args)))
+            return $this->find($find['criteria'], $find['params']);
+        elseif (false!==($params = $this->translateParam($method, $args)))
+            return strpos($method, 'deleteBy')===0?$this->delete($params):$this->update($params);
+        else
+            throw new Exception(self::E_Method, 1);
+    }
+
+    public function __construct()
+    {
+        foreach ($this->schema() as $key => $value) {
+            is_array($value) || $value    = array($value);
+            $this->schema['fields'][$key] = array_shift($value);
+            $this->schema['filter'][$key] = array_shift($value);
+            $this->schema['init'][$key]   = array_shift($value);
+            $this->schema['values'][$key] = null;
+        }
+        $pk = $this->primaryKey();
+        $this->schema['pk'] = is_array($pk)?$pk:array($pk);
+        if (!array_filter($this->schema['fields']))
+            throw new Exception('There is no schema defined', 1);
+        $this->disableValidation = count(array_filter($this->schema['filter']))==0;
     }
 }

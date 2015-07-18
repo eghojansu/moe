@@ -1,16 +1,14 @@
 # moe
 A PHP framework based on [Fatfree Framework](http://fatfreeframework.com)
 
+> It's for my personal use only. May be the code not safe for you because my ugly coding style.
+
 ## Differences with Fatfree Framework
 - Every class namespaced with \moe
 - F3 Autoloader deleted, and now it depends on composer autoloader
 - Template auto parse, just declare TEMPLATE vars to activate it
-- Delete database class and its mapper, changed to Medoo
-- Add new AbstractModel, Validator
-
-## Depends
-- [Medoo Database Framework](https://github.com/catfan/Medoo)
-- [Wixel/GUMP](https://github.com/Wixel/GUMP) Validator
+- Delete F3 DB ORM
+- Add new class Database, AbstractModel, Validation
 
 ## Installation
 Use [Composer](http://getcomposer.org) to install this package

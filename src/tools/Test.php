@@ -2,6 +2,8 @@
 
 namespace moe\tools;
 
+use moe\Base;
+
 //! Unit test kit
 class Test {
 

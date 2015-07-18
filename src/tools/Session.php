@@ -148,7 +148,7 @@ class Session {
 		);
 		register_shutdown_function('session_commit');
 		@session_start();
-		$fw=\Base::instance();
+		$fw=Base::instance();
 		$headers=$fw->get('HEADERS');
 		if (($ip=$this->ip()) && $ip!=$fw->get('IP') ||
 			($agent=$this->agent()) &&

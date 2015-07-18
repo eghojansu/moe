@@ -1,9 +1,7 @@
 <?php
 
-namespace moe\tools;
+namespace moe;
 
-use moe\Base;
-use moe\Preview;
 use ReflectionClass;
 
 //! XML-style template engine
