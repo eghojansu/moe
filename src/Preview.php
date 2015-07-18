@@ -12,11 +12,11 @@ class Preview extends View {
 		$filter = array(
 			'esc'=>'$this->esc',
 			'raw'=>'$this->raw',
-			'alias'=>'moe\Base::instance()->alias',
-			'format'=>'moe\Base::instance()->format',
-			'decode'=>'moe\Base::instance()->decode',
-			'encode'=>'moe\Base::instance()->encode',
-			'url'=>'moe\Base::instance()->siteUrl',
+			'alias'=>'moe\Instance::alias',
+			'format'=>'moe\Instance::format',
+			'decode'=>'moe\Instance::decode',
+			'encode'=>'moe\Instance::encode',
+			'url'=>'moe\Instance::siteUrl',
 		);
 
 	/**

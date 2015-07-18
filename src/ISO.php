@@ -350,7 +350,7 @@ class ISO extends Prefab {
 	*	@return array
 	**/
 	function languages() {
-		return Base::instance()->constants($this,'LC_');
+		return Instance::constants($this,'LC_');
 	}
 
 	/**
@@ -358,7 +358,7 @@ class ISO extends Prefab {
 	*	@return array
 	**/
 	function countries() {
-		return Base::instance()->constants($this,'CC_');
+		return Instance::constants($this,'CC_');
 	}
 
 }
