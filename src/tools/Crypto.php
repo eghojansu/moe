@@ -13,7 +13,8 @@ final class Crypto extends Prefab
     private $key;
 
     const
-        E_Key='No secret key defined!';
+        E_Key='No secret key defined!',
+        E_Invalid='Secret key must be 64-char';
 
     // Encrypt Function
     public function encrypt($string)
@@ -53,5 +54,7 @@ final class Crypto extends Prefab
         $this->key = Instance::get('SECRETKEY');
         if (!$this->key)
             throw new Exception(self::E_Key);
+        if (strlen($this->key)!=64)
+            throw new Exception(self::E_Invalid);
     }
 }

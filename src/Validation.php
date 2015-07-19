@@ -17,6 +17,8 @@ class Validation extends Prefab
         'in_array'=>'{f} must be in ({p})',
         'min_length'=>'{f} minimal {p} character',
         'max_length'=>'{f} maximal {p} character',
+        'exists'=>'{f} "{v}" was not exists',
+        'unique'=>'{f} "{v}" was exists',
         );
 
     public function addMessage($func, $pattern)
@@ -26,18 +28,21 @@ class Validation extends Prefab
 
     public function message($func, $field, $value, $param = null)
     {
+        $message = '{f} was invalid';
         if (isset(self::$messages[$func]))
-            return str_replace(array(
-                '{f}',
-                '{v}',
-                '{p}',
-                ), array(
-                $field,
-                is_array($value)?implode(', ', $value):$value,
-                is_array($param)?implode(', ', $param):$param,
-                ), self::$messages[$func]);
+            $message = self::$messages[$func];
         else
-            return $field.' was invalid';
+            foreach (self::$messages as $func_msg => $msg)
+                if (strpos($func, $func_msg)===0) {
+                    $message = $msg;
+                    break;
+                }
+
+        return str_replace(array('{f}','{v}','{p}',), array(
+            $field,
+            is_array($value)?implode(', ', $value):$value,
+            is_array($param)?implode(', ', $param):$param,
+            ), $message);
     }
 
     public function required($val)
@@ -73,5 +78,10 @@ class Validation extends Prefab
     public function max_length($string, $max)
     {
         return is_scalar($string)?strlen($string)<=$max:false;
+    }
+
+    public function exists($val, $func)
+    {
+        return Instance::call($func, $val);
     }
 }

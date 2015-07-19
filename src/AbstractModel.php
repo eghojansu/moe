@@ -14,6 +14,7 @@ abstract class AbstractModel extends Prefab
     protected $select = array(
         'select' => '',
         'from'   => '',
+        'join'   => '',
         'where'  => '',
         'group'  => '',
         'having' => '',
@@ -37,6 +38,7 @@ abstract class AbstractModel extends Prefab
         'others'  =>array(),
         );
     protected $disableValidation = false;
+    protected $useRelation = true;
 
     protected $logs = array();
     protected $errors = array();
@@ -44,6 +46,9 @@ abstract class AbstractModel extends Prefab
 
     //! Statement handle
     protected $stmt;
+
+    const
+        Magic = 'findBy|existsBy|unique|deleteBy|update';
 
     const
         E_Method = 'Method doesn\'t exists',
@@ -78,7 +83,24 @@ abstract class AbstractModel extends Prefab
     /**
      * Return table name
      */
-    abstract public function table();
+    public function table()
+    {
+        $class = explode('\\', get_called_class());
+        return Instance::snakecase(lcfirst(end($class)));
+    }
+
+    /**
+     * Relation
+     * Format :
+     * [
+     *     'join table on table.column = {table}.column',
+     *     'join (select * from table) x on x.column = {table}.column'
+     * ]
+     */
+    public function relation()
+    {
+        return array();
+    }
 
     /**
      * Get db instance
@@ -165,9 +187,15 @@ abstract class AbstractModel extends Prefab
         return true;
     }
 
-    public function disableValidation()
+    public function disableValidation($disable = true)
     {
-        $this->disableValidation = true;
+        $this->disableValidation = $disable;
+        return $this;
+    }
+
+    public function useRelation($use = true)
+    {
+        $this->useRelation = $use;
         return $this;
     }
 
@@ -196,10 +224,10 @@ abstract class AbstractModel extends Prefab
      */
     public function next()
     {
-        if ($this->hasError())
-            throw new Exception(self::E_Query, 1);
-        $row = $this->stmt->fetch(PDO::FETCH_ASSOC);
-        $this->assign($row?:array());
+        if (!$this->hasError()) {
+            $row = $this->stmt->fetch(PDO::FETCH_ASSOC);
+            $this->assign($row?:array());
+        }
         return $this;
     }
 
@@ -279,6 +307,66 @@ abstract class AbstractModel extends Prefab
             $values[$token] = isset($pk[$field])?$pk[$field]:array_shift($pk);
         }
         return $this->find(implode(' and ', $criteria), $values);
+    }
+
+    /**
+     * Get PK Value
+     * @return mixed pk value
+     */
+    public function pkValue()
+    {
+        $pk = array();
+        foreach ($this->schema['pk'] as $field)
+            if (isset($this->schema['values'][$field]))
+                $pk[$field] = $this->schema['values'][$field];
+        return count($pk)==0?null:(count($pk)==1?array_shift($pk):$pk);
+    }
+
+    /**
+     * Compare PK
+     */
+    public function pkCompare($pk)
+    {
+        $pkThis = $this->pkValue();
+        is_array($pkThis) || $pkThis = array($pkThis);
+        is_array($pk)     || $pk = array($pk);
+        if (count($pkThis)!=count($pk))
+            return false;
+        foreach ($pkThis as $key => $value)
+            if (!isset($pk[$key]) || $pk[$key]!=$value)
+                return false;
+        return true;
+    }
+
+    /**
+     * Check existance
+     */
+    public function exists($criteria = null, array $values = array())
+    {
+        if (!$this->schema['pk'] || (!$values && !$criteria))
+            throw new Exception(self::E_PrimaryKey, 1);
+        $that = clone $this;
+        if ($values)
+            $that->find($criteria, $values);
+        else
+            $that->findByPK($criteria);
+        return !$that->get()->dry();
+    }
+
+    /**
+     * Check not existance
+     */
+    public function unique($criteria = null, array $values = array())
+    {
+        if (!$this->schema['pk'] || (!$values && !$criteria))
+            throw new Exception(self::E_PrimaryKey, 1);
+        $that = clone $this;
+        if ($values)
+            $that->find($criteria, $values);
+        else
+            $that->findByPK($criteria);
+        $that->get();
+        return ($that->dry() || $this->pkCompare($that->pkValue()));
     }
 
     /**
@@ -463,10 +551,11 @@ abstract class AbstractModel extends Prefab
             } else
                 $args = array($param);
             $function = $func;
-            if (method_exists($this, $func))
-                $func = array($this, $func);
-            elseif (method_exists($validation, $func))
+            if (method_exists($validation, $func))
                 $func = array($validation, $func);
+            elseif (method_exists($this, $func) ||
+                preg_match('/^'.self::Magic.'/', $func))
+                $func = array($this, $func);
             elseif (method_exists($moe, $func))
                 $func = array($moe, $func);
             array_unshift($args, $value);
@@ -501,9 +590,7 @@ abstract class AbstractModel extends Prefab
         $this->stmt = $this->db()->pdo->prepare($query);
         $this->stmt->execute($params);
         if ($this->stmt->errorCode()!='00000') {
-            $this->errors[] = $this->stmt->errorInfo();
-            if (Instance::get('DEBUG'))
-                throw new Exception(self::E_Query);
+            $this->errors[] = Instance::stringify($this->stmt->errorInfo());
             return false;
         }
         return true;
@@ -595,6 +682,10 @@ abstract class AbstractModel extends Prefab
     protected function buildSelect(&$params = array())
     {
         $this->select['select']  || $this->select();
+        if ($this->useRelation && $relation = $this->relation()) {
+            $this->select['join'] = implode("\n", $relation);
+        } else
+            $this->select['join'] = '';
         $cp     = $this->select;
         $params = $cp['params'];
         unset($cp['params']);
@@ -615,13 +706,8 @@ abstract class AbstractModel extends Prefab
      */
     protected function translateParam($method, array $args)
     {
-        if (!(strpos($method, $find='update')===0 ||
-              strpos($method, $find='deleteBy')==0))
-            return false;
-
         $params = array();
-        $columns = explode('_', Instance::snakecase(str_replace('_', '-',
-            lcfirst(str_replace($find, '', $method)))));
+        $columns = explode('_', Instance::snakecase(str_replace('_', '-', lcfirst($method))));
         for ($pointer = 0, $last = count($columns); $pointer < $last; $pointer++) {
             $column = str_replace('-', '_', $columns[$pointer]);
             if (!$args)
@@ -636,15 +722,11 @@ abstract class AbstractModel extends Prefab
      */
     protected function translateCriteria($method, array $args)
     {
-        if (strpos($method, $find='findBy')!==0)
-            return false;
-
         $result = array(
             'criteria'=>'',
             'params'=>array()
             );
-        $columns = explode('_', Instance::snakecase(str_replace('_', '-',
-            lcfirst(str_replace($find, '', $method)))));
+        $columns = explode('_', Instance::snakecase(str_replace('_', '-', lcfirst($method))));
         $n_token = 'not';
         $p_token = 'and or';
         $o_token = 'in between like begin end';
@@ -737,11 +819,19 @@ abstract class AbstractModel extends Prefab
 
     public function __call($method, array $args)
     {
-        if (false!==($find = $this->translateCriteria($method, $args)))
-            return $this->find($find['criteria'], $find['params']);
-        elseif (false!==($params = $this->translateParam($method, $args)))
-            return strpos($method, 'deleteBy')===0?$this->delete($params):$this->update($params);
-        else
+        if (preg_match('/^(?<method>'.self::Magic.')/', $method, $match)) {
+            $func = $match['method'];
+            $method = str_replace($func, '', $method);
+            $func = str_replace('By', '', $func);
+            switch ($func) {
+                case 'delete':
+                case 'update':
+                    return $this->{$func}($this->translateParam($method, $args));
+                default:
+                    $find = $this->translateCriteria($method, $args);
+                    return $this->{$func}($find['criteria'], $find['params']);
+            }
+        } else
             throw new Exception(self::E_Method, 1);
     }
 
