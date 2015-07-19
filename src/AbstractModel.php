@@ -688,7 +688,7 @@ abstract class AbstractModel extends Prefab
 
         $cp['select']  = 'select '.trim($cp['select']);
         $cp['from']    = ' from '.$this->table();
-        $this->logs[]  = implode("\n", array_filter($cp));
+        $this->logs[]  = str_replace('{t}', $this->table(), implode("\n", array_filter($cp)));
         return $this->lastQuery();
     }
 
