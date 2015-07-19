@@ -207,7 +207,7 @@ abstract class AbstractModel extends Prefab
     {
         $query = $this->buildDelete($criteria);
         if ($result = $this->run($query, $criteria))
-            $this->next();
+            $this->fetch();
         return $result;
     }
 
@@ -235,7 +235,7 @@ abstract class AbstractModel extends Prefab
     /**
      * Get next row and Assign row to schema values
      */
-    public function next()
+    public function fetch()
     {
         if (!$this->hasError()) {
             $row = $this->stmt->fetch(PDO::FETCH_ASSOC);
@@ -252,7 +252,7 @@ abstract class AbstractModel extends Prefab
         $this->limit($limit);
         $query = $this->buildSelect($params);
         $this->run($query, $params);
-        return $this->next();
+        return $this->fetch();
     }
 
     /**
