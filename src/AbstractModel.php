@@ -693,6 +693,7 @@ abstract class AbstractModel extends Prefab
         !$cp['where']  || $cp['where']  = ' where '    .trim($cp['where']);
         !$cp['group']  || $cp['group']  = ' group by ' .trim($cp['group']);
         !$cp['having'] || $cp['having'] = ' having '   .trim($cp['having']);
+        !$cp['order']  || $cp['order']  = ' order by ' .trim($cp['order']);
         !$cp['limit']  || $cp['limit']  = ' limit '    .trim($cp['limit']);
         !$cp['offset'] || $cp['offset'] = ' offset '   .trim($cp['offset']);
 
