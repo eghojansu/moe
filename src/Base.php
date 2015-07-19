@@ -188,8 +188,8 @@ final class Base extends Prefab implements ArrayAccess {
     /**
      * Site Url
      */
-    public function siteUrl($url) {
-        return $this->hive['BASEURL'] . $url;
+    public function siteUrl($url, $params = array()) {
+        return $this->hive['BASEURL'] . ltrim(empty($this->hive['ALIASES'][$url])?$url:$this->alias($url, $params), '/');
     }
 
     /**
