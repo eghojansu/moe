@@ -277,8 +277,8 @@ abstract class AbstractModel extends Prefab
         $this->limit(0)->offset(0);
         return array(
             'data'=>$this->stmt->fetchAll(PDO::FETCH_ASSOC),
-            'total'=>$this->count(true),
-            'page'=>$page,
+            'total'=>($total = $this->count(true)),
+            'totalPage'=>$limit>0?ceil($total/$limit):0,
             );
     }
 
