@@ -284,7 +284,7 @@ abstract class AbstractModel extends Prefab
      */
     public function find($criteria, array $values = array())
     {
-        return $this->select()->where($criteria, $values);
+        return $this->where($criteria, $values);
     }
 
     /**
@@ -824,7 +824,7 @@ abstract class AbstractModel extends Prefab
                 $punc = $columns[$pointer+2];
             }
             $params || $params[$token] = array_shift($args);
-            $result['criteria'] .= ' '.$column.' '.$operator.' '.$token.' '.$punc;
+            $result['criteria'] .= ' {table}.'.$column.' '.$operator.' '.$token.' '.$punc;
             $result['params'] = array_merge($result['params'], $params);
         }
         $result['criteria'] = preg_replace('/ (and|or)$/i', '', $result['criteria']);
