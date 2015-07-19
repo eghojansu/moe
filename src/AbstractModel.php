@@ -123,7 +123,9 @@ abstract class AbstractModel extends Prefab
      */
     public function insert(array $data = array(), $update = false)
     {
-        $data = array_merge($this->schema['values'], $this->schema['others'], $data);
+        $data = array_merge($this->schema['init'],
+            array_filter($this->schema['values']),
+            array_filter($this->schema['others']), $data);
         if (empty($data))
             throw new Exception(self::E_Data, 1);
 
@@ -155,7 +157,7 @@ abstract class AbstractModel extends Prefab
      */
     public function update(array $data = array(), array $criteria = array())
     {
-        $data = array_merge($this->schema['others'], $data);
+        $data = array_merge(array_filter($this->schema['others']), $data);
         if (empty($data))
             throw new Exception(self::E_Data, 1);
 
@@ -839,9 +841,14 @@ abstract class AbstractModel extends Prefab
     {
         foreach ($this->schema() as $key => $value) {
             is_array($value) || $value    = array($value);
-            $this->schema['fields'][$key] = array_shift($value);
-            $this->schema['filter'][$key] = array_shift($value);
-            $this->schema['init'][$key]   = array_shift($value);
+            $field  = array_shift($value);
+            $filter = array_shift($value);
+                is_array($filter) || $filter = array($filter);
+                $filter = array_filter($filter);
+            $init   = array_shift($value);
+            $this->schema['fields'][$key] = $field;
+            $this->schema['filter'][$key] = $filter;
+            $this->schema['init'][$key]   = $init;
             $this->schema['values'][$key] = null;
         }
         $pk = $this->primaryKey();
