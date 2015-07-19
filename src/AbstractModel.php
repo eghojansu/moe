@@ -38,8 +38,8 @@ abstract class AbstractModel extends Prefab
         'others'  =>array(),
         );
     protected $validation      = false;
-    protected $relation        = false;
     protected $resetAfterBuild = true;
+    protected $relation;
 
     protected $logs       = array();
     protected $errors     = array();
@@ -94,8 +94,9 @@ abstract class AbstractModel extends Prefab
      * Relation
      * Format :
      * [
-     *     'join table on table.column = {table}.column',
-     *     'join (select * from table) x on x.column = {table}.column'
+     *     joina=>'join {join} on {join}.column = {table}.column',
+     *     joinb b=>'join {join} {b} on {b}.column = {table}.column',
+     *     c=>'join (select * from table) {j} on {j}.column = {table}.column'
      * ]
      */
     public function relation()
@@ -109,6 +110,15 @@ abstract class AbstractModel extends Prefab
     public function db()
     {
         return DB::instance();
+    }
+
+    /**
+     * Set relation to use, can use 'all' or relation key to use all relation
+     */
+    public function useRelation($what = 'all')
+    {
+        $this->relation = $what;
+        return $this;
     }
 
     /**
@@ -510,6 +520,7 @@ abstract class AbstractModel extends Prefab
             case 'select':
                 foreach ($this->{$what} as $key => $value)
                     $this->{$what}[$key] = is_array($value)?array():'';
+                $this->relation = null;
                 break;
             default:
                 $this->schema['values'] = $this->schema['init'];
@@ -671,10 +682,7 @@ abstract class AbstractModel extends Prefab
     protected function buildSelect(&$params = array())
     {
         $this->select['select']  || $this->select();
-        if ($this->relation && $relation = $this->relation())
-            $this->select['join'] = implode("\n", $relation);
-        else
-            $this->select['join'] = '';
+        $this->select['join'] = $this->buildRelation();
         $cp     = $this->select;
         $params = $cp['params'];
         unset($cp['params']);
@@ -688,8 +696,47 @@ abstract class AbstractModel extends Prefab
 
         $cp['select']  = 'select '.trim($cp['select']);
         $cp['from']    = ' from '.$this->table();
-        $this->logs[]  = str_replace('{t}', $this->table(), implode("\n", array_filter($cp)));
+        $this->logs[]  = str_replace('{table}', $this->table(), implode("\n", array_filter($cp)));
         return $this->lastQuery();
+    }
+
+    /**
+     * Build relation
+     */
+    protected function buildRelation()
+    {
+        if (!($this->relation && $relation = $this->relation()))
+            return '';
+
+        if (isset($relation[$this->relation]))
+            $relation = array($this->relation=>$relation[$this->relation]);
+        elseif (strpos(',', $this->relation)!==false) {
+            $tmp = explode(',', $this->relation);
+            foreach ($relation as $key => $value)
+                if (!in_array($key, $tmp))
+                    unset($relation[$key]);
+        } elseif ($this->relation!='all')
+            throw new Exception('Relation key "'.$this->relation.'" was not exists', 1);
+
+        $master_table = $this->table();
+        $rel = array();
+        foreach ($relation as $key => $value) {
+            if (is_numeric($key))
+                throw new Exception('Relation key must be table name and (or) its alias', 1);
+            $tmp = explode(' ', $key);
+            $table = $tmp[0];
+            $alias = isset($tmp[1])?$tmp[1]:null;
+            if (strpos($value, 'select')!==false) {
+                $alias = $table;
+                $table = null;
+            }
+            $rel[] = str_replace(array(
+                '{join}', '{j}', '{table}'
+                ), array(
+                $table, $alias, $master_table), $value);
+        }
+
+        return implode("\n", $rel);
     }
 
     /**
