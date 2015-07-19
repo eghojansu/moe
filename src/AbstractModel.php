@@ -264,8 +264,7 @@ abstract class AbstractModel extends Prefab
     {
         $this->limit($limit);
         $query = $this->buildSelect($params);
-        $this->run($query, $params);
-        return $this->stmt->fetchAll($obj?PDO::FETCH_OBJ:PDO::FETCH_ASSOC);
+        return $this->run($query, $params)?$this->stmt->fetchAll($obj?PDO::FETCH_OBJ:PDO::FETCH_ASSOC):array();
     }
 
     /**
@@ -275,11 +274,9 @@ abstract class AbstractModel extends Prefab
     {
         $this->limit($limit)->offset($page*$limit-$limit);
         $query = $this->buildSelect($params);
-        $this->run($query, $params);
-        $this->limit(0)->offset(0);
         return array(
-            'data'=>$this->stmt->fetchAll(PDO::FETCH_ASSOC),
-            'total'=>($total = $this->count(true)),
+            'data'=>$this->run($query, $params)?$this->stmt->fetchAll(PDO::FETCH_ASSOC):array(),
+            'total'=>($total = $this->limit(0)->offset(0)->count(true)),
             'totalPage'=>$limit>0?ceil($total/$limit):0,
             );
     }
@@ -531,6 +528,7 @@ abstract class AbstractModel extends Prefab
                 $this->schema['others'] = array();
                 break;
         }
+        return $this;
     }
 
     /**
@@ -582,6 +580,7 @@ abstract class AbstractModel extends Prefab
             else
                 $this->schema['others'][$key] = $value;
         }
+        return $this;
     }
 
     /**
