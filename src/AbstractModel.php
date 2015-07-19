@@ -25,7 +25,7 @@ abstract class AbstractModel extends Prefab
         );
     //! Model
     protected $schema = array(
-        //! PK field and alias
+        //! PK field(s)
         'pk'  =>array(),
         //! Pair field and alias
         'fields'  =>array(),
@@ -37,12 +37,13 @@ abstract class AbstractModel extends Prefab
         //! Other/updated values
         'others'  =>array(),
         );
-    protected $disableValidation = false;
-    protected $useRelation = true;
+    protected $validation      = false;
+    protected $relation        = false;
+    protected $resetAfterBuild = true;
 
-    protected $logs = array();
-    protected $errors = array();
-    protected $messages = array();
+    protected $logs       = array();
+    protected $errors     = array();
+    protected $messages   = array();
 
     //! Statement handle
     protected $stmt;
@@ -181,24 +182,12 @@ abstract class AbstractModel extends Prefab
 
     public function validate(array &$params)
     {
-        if ($this->disableValidation)
+        if (!$this->validation)
             return true;
         foreach ($params as $token => $value)
             if (!$this->performValidate(str_replace(':', '', $token), $params[$token]))
                 return false;
         return true;
-    }
-
-    public function disableValidation($disable = true)
-    {
-        $this->disableValidation = $disable;
-        return $this;
-    }
-
-    public function useRelation($use = true)
-    {
-        $this->useRelation = $use;
-        return $this;
     }
 
     /**
@@ -207,9 +196,8 @@ abstract class AbstractModel extends Prefab
     public function delete(array $criteria = array())
     {
         $query = $this->buildDelete($criteria);
-        $result = $this->run($query, $criteria);
-        $this->next();
-
+        if ($result = $this->run($query, $criteria))
+            $this->next();
         return $result;
     }
 
@@ -218,7 +206,20 @@ abstract class AbstractModel extends Prefab
      */
     public function cast()
     {
-        return $this->schema['values'];
+        return array_merge($this->schema['values'],
+                array_filter($this->schema['others']));
+    }
+
+    /**
+     * Get count
+     */
+    public function count($force = false)
+    {
+        if ($this->stmt && !$force)
+            return $this->stmt->rowCount();
+        $this->select('count(*)', true);
+        $query = $this->buildSelect($params);
+        return $this->run($query, $params)?$this->stmt->fetchColumn(0):0;
     }
 
     /**
@@ -231,19 +232,6 @@ abstract class AbstractModel extends Prefab
             $this->assign($row?:array());
         }
         return $this;
-    }
-
-    /**
-     * Get count
-     */
-    public function count($force = false)
-    {
-        if ($this->stmt && !$force)
-            return $this->stmt->rowCount();
-        $this->select('count(*) as total', true);
-        $query = $this->buildSelect($params);
-        $this->run($query, $params);
-        return $this->stmt->fetchColumn(0);
     }
 
     /**
@@ -683,13 +671,14 @@ abstract class AbstractModel extends Prefab
     protected function buildSelect(&$params = array())
     {
         $this->select['select']  || $this->select();
-        if ($this->useRelation && $relation = $this->relation()) {
+        if ($this->relation && $relation = $this->relation())
             $this->select['join'] = implode("\n", $relation);
-        } else
+        else
             $this->select['join'] = '';
         $cp     = $this->select;
         $params = $cp['params'];
         unset($cp['params']);
+        !$this->resetAfterBuild || $this->reset('select');
         !$cp['where']  || $cp['where']  = ' where '    .trim($cp['where']);
         !$cp['group']  || $cp['group']  = ' group by ' .trim($cp['group']);
         !$cp['having'] || $cp['having'] = ' having '   .trim($cp['having']);
@@ -833,6 +822,10 @@ abstract class AbstractModel extends Prefab
                     $find = $this->translateCriteria($method, $args);
                     return $this->{$func}($find['criteria'], $find['params']);
             }
+        } elseif (preg_match('/^(?<en>enable|disable)/', $method, $match)) {
+            $state = lcfirst(preg_replace('/^'.$match['en'].'/', '', $method));
+            if (property_exists($this, $state) && is_bool($this->{$state}))
+                $this->{$state} = $match['en']=='enable';
         } else
             throw new Exception(self::E_Method, 1);
     }
@@ -855,6 +848,6 @@ abstract class AbstractModel extends Prefab
         $this->schema['pk'] = is_array($pk)?$pk:array($pk);
         if (!array_filter($this->schema['fields']))
             throw new Exception('There is no schema defined', 1);
-        $this->disableValidation = count(array_filter($this->schema['filter']))==0;
+        $this->validation = count(array_filter($this->schema['filter']))==0;
     }
 }
