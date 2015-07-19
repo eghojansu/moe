@@ -1635,6 +1635,22 @@ final class Base extends Prefab implements ArrayAccess {
     }
 
     /**
+     * Generate random string
+     * @param  int $len random string length
+     * @return string     random string
+     */
+    public function random($len)
+    {
+		$len     = abs($len);
+		$pool    = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+		$poolLen = strlen($pool);
+		$str     = '';
+        while ($len-- > 0)
+        	$str .= substr($pool, rand(0, $poolLen), 1);
+        return $str;
+    }
+
+    /**
      * Send Json
      * @param  mixed $data data to send
      */
