@@ -158,7 +158,7 @@ abstract class AbstractModel extends Prefab
             return false;
 
         $result = $this->run($query, $params);
-        $this->assign($params);
+        !$result || $this->assign($params);
 
         return $result;
     }
@@ -185,7 +185,7 @@ abstract class AbstractModel extends Prefab
             return false;
 
         $result = $this->run($query, $params);
-        $this->assign($params);
+        !$result || $this->assign($params);
 
         return $result;
     }
