@@ -135,8 +135,8 @@ abstract class AbstractModel extends Prefab
     public function insert(array $data = array(), $update = false)
     {
         $data = array_merge($this->schema['init'],
-            array_filter($this->schema['values']),
-            array_filter($this->schema['others']), $data);
+            array_filter($this->schema['values'], array($this, 'filterRule')),
+            array_filter($this->schema['others'], array($this, 'filterRule')), $data);
         if (empty($data))
             throw new Exception(self::E_Data, 1);
 
@@ -168,7 +168,7 @@ abstract class AbstractModel extends Prefab
      */
     public function update(array $data = array(), array $criteria = array())
     {
-        $data = array_merge(array_filter($this->schema['others']), $data);
+        $data = array_merge(array_filter($this->schema['others'], array($this, 'filterRule')), $data);
         if (empty($data))
             throw new Exception(self::E_Data, 1);
 
@@ -217,7 +217,7 @@ abstract class AbstractModel extends Prefab
     public function cast()
     {
         return array_merge($this->schema['values'],
-                array_filter($this->schema['others']));
+                array_filter($this->schema['others'], array($this, 'filterRule')));
     }
 
     /**
@@ -452,7 +452,7 @@ abstract class AbstractModel extends Prefab
      */
     public function dry()
     {
-        return count(array_filter($this->schema['values']))==0;
+        return count(array_filter($this->schema['values'], array($this, 'filterRule')))==0;
     }
 
     /**
@@ -528,6 +528,42 @@ abstract class AbstractModel extends Prefab
                 break;
         }
         return $this;
+    }
+
+    /**
+    *   Hydrate mapper object using hive array variable
+    *   @return NULL
+    *   @param $key string
+    *   @param $func callback
+    **/
+    public function copyfrom($key,$func=NULL) {
+        $var=Instance::get($key);
+        if ($func)
+            $var=call_user_func($func,$var);
+        foreach ($var as $key=>$val)
+            if (isset($this->schema['fields'][$key]))
+                $this->{$key} = $val;
+    }
+
+    /**
+    *   Populate hive array variable with mapper fields
+    *   @return NULL
+    *   @param $key string
+    **/
+    public function copyto($key) {
+        $var=&Base::instance()->ref($key);
+        foreach (array_merge($this->schema['init'],
+                 array_filter($this->schema['values'], array($this, 'filterRule')),
+                 array_filter($this->schema['others'], array($this, 'filterRule'))) as $key=>$val)
+            $var[$key]=$val;
+    }
+
+    /**
+     * For filtering rule
+     */
+    public function filterRule($var)
+    {
+        return !(is_null($var) || false===$var);
     }
 
     /**
@@ -696,7 +732,7 @@ abstract class AbstractModel extends Prefab
 
         $cp['select']  = 'select '.trim($cp['select']);
         $cp['from']    = ' from '.$this->table();
-        $this->logs[]  = str_replace('{table}', $this->table(), implode("\n", array_filter($cp)));
+        $this->logs[]  = str_replace('{table}', $this->table(), implode("\n", array_filter($cp, array($this, 'filterRule'))));
         return $this->lastQuery();
     }
 
@@ -884,7 +920,7 @@ abstract class AbstractModel extends Prefab
             $field  = array_shift($value);
             $filter = array_shift($value);
                 is_array($filter) || $filter = array($filter);
-                $filter = array_filter($filter);
+                $filter = array_filter($filter, array($this, 'filterRule'));
             $init   = array_shift($value);
             $this->schema['fields'][$key] = $field;
             $this->schema['filter'][$key] = $filter;
@@ -893,8 +929,8 @@ abstract class AbstractModel extends Prefab
         }
         $pk = $this->primaryKey();
         $this->schema['pk'] = is_array($pk)?$pk:array($pk);
-        if (!array_filter($this->schema['fields']))
+        if (!array_filter($this->schema['fields'], array($this, 'filterRule')))
             throw new Exception('There is no schema defined', 1);
-        $this->validation = count(array_filter($this->schema['filter']))==0;
+        $this->validation = count(array_filter($this->schema['filter'], array($this, 'filterRule')))==0;
     }
 }
