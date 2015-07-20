@@ -1082,6 +1082,15 @@ final class Base extends Prefab implements ArrayAccess {
 	}
 
 	/**
+	 * return true if request method is post
+	 * @return  bool
+	 */
+	public function isPost()
+	{
+		return strtolower($_SERVER['REQUEST_METHOD'])=='post';
+	}
+
+	/**
 	*	Sniff IP address
 	*	@return string
 	**/
