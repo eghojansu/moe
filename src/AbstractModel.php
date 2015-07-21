@@ -740,7 +740,7 @@ abstract class AbstractModel extends Prefab
         !$cp['having'] || $cp['having'] = ' having '   .trim($cp['having']);
         !$cp['order']  || $cp['order']  = ' order by ' .trim($cp['order']);
         !$cp['limit']  || $cp['limit']  = ' limit '    .trim($cp['limit']);
-        !$cp['offset'] || $cp['offset'] = ' offset '   .trim($cp['offset']);
+        $cp['offset'] = $cp['offset']==''?'':' offset '   .trim($cp['offset']);
 
         $cp['select']  = 'select '.trim($cp['select']);
         $cp['from']    = ' from '.$this->table();
