@@ -504,6 +504,14 @@ abstract class AbstractModel extends Prefab
     }
 
     /**
+     * Get message as string (ul)
+     */
+    public function messageString()
+    {
+        return '<ul><li>'.implode('</li><li>', $this->message).'</li></ul>';
+    }
+
+    /**
      * Get validation object
      */
     public function validation()

@@ -2,6 +2,7 @@
 A PHP framework based on [Fatfree Framework](http://fatfreeframework.com)
 
 > It's for my personal use only. May be the code not safe for you because my ugly coding style.
+> And it is not stable yet.
 
 ## Differences with Fatfree Framework
 - Every class namespaced with \moe
