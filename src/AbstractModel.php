@@ -40,6 +40,7 @@ abstract class AbstractModel extends Prefab
     protected $validation      = false;
     protected $resetAfterBuild = true;
     protected $relation;
+    protected $fetchMode = PDO::FETCH_ASSOC;
 
     protected $logs       = array();
     protected $errors     = array();
@@ -118,6 +119,15 @@ abstract class AbstractModel extends Prefab
     public function useRelation($what = 'all')
     {
         $this->relation = $what;
+        return $this;
+    }
+
+    /**
+     * Fetch mode
+     */
+    public function fetchMode($mode)
+    {
+        $this->fetchMode = $mode;
         return $this;
     }
 
@@ -238,7 +248,7 @@ abstract class AbstractModel extends Prefab
     public function fetch()
     {
         if (!$this->hasError()) {
-            $row = $this->stmt->fetch(PDO::FETCH_ASSOC);
+            $row = $this->stmt->fetch($this->fetchMode);
             $this->assign($row?:array());
         }
         return $this;
@@ -258,11 +268,11 @@ abstract class AbstractModel extends Prefab
     /**
      * Get all
      */
-    public function all($obj = false, $limit = 0)
+    public function all($limit = 0)
     {
         $this->limit($limit);
         $query = $this->buildSelect($params);
-        return $this->run($query, $params)?$this->stmt->fetchAll($obj?PDO::FETCH_OBJ:PDO::FETCH_ASSOC):array();
+        return $this->run($query, $params)?$this->stmt->fetchAll($this->fetchMode):array();
     }
 
     /**
@@ -276,7 +286,7 @@ abstract class AbstractModel extends Prefab
             ->disableResetAfterBuild()
             ->buildSelect($params);
         return array(
-            'data'=>$this->run($query, $params)?$this->stmt->fetchAll(PDO::FETCH_ASSOC):array(),
+            'data'=>$this->run($query, $params)?$this->stmt->fetchAll($this->fetchMode):array(),
             'recordsTotal'=>($total = $this
                 ->enableResetAfterBuild()
                 ->limit(0)
