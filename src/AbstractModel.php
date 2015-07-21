@@ -504,11 +504,11 @@ abstract class AbstractModel extends Prefab
     }
 
     /**
-     * Get message as string (ul)
+     * array as html list
      */
-    public function messageString()
+    public function asList($what)
     {
-        return '<ul><li>'.implode('</li><li>', $this->messages?:array()).'</li></ul>';
+        return '<ul><li>'.implode('</li><li>', in_array($what, array('messages', 'errors', 'logs'))?$this->{$what}?:array()).'</li></ul>';
     }
 
     /**
