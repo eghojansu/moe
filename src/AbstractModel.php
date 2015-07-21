@@ -49,7 +49,7 @@ abstract class AbstractModel extends Prefab
     protected $stmt;
 
     const
-        Magic = 'findBy|existsBy|unique|deleteBy|update';
+        Magic = 'findBy|existsBy|unique|deleteBy|update|having|or|and';
 
     const
         E_Method = 'Method doesn\'t exists',
@@ -288,6 +288,22 @@ abstract class AbstractModel extends Prefab
     }
 
     /**
+     * Find synonym
+     */
+    public function and($criteria, array $values = array())
+    {
+        return $this->where($criteria, $values);
+    }
+
+    /**
+     * find with or
+     */
+    public function or($criteria, array $values = array())
+    {
+        return $this->where($criteria, $values, 'or');
+    }
+
+    /**
      * Find by PK
      */
     public function findByPK()
@@ -381,7 +397,7 @@ abstract class AbstractModel extends Prefab
     /**
      * Where
      */
-    public function where($criteria, array $values = array(), $before = 'AND')
+    public function where($criteria, array $values = array(), $before = 'and')
     {
         $this->select[__FUNCTION__] .= ($this->select[__FUNCTION__]?
             ' '.$before.' ':'').trim($criteria);
@@ -402,7 +418,7 @@ abstract class AbstractModel extends Prefab
     /**
      * Having
      */
-    public function having($criteria, array $values = array(), $before = 'AND')
+    public function having($criteria, array $values = array(), $before = 'and')
     {
         $this->select[__FUNCTION__] .= ($this->select[__FUNCTION__]?
             ' '.$before.' ':'').trim($where);
