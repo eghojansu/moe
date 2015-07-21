@@ -270,11 +270,18 @@ abstract class AbstractModel extends Prefab
      */
     public function page($page = 1, $limit = 10)
     {
-        $this->limit($limit)->offset($page*$limit-$limit);
-        $query = $this->buildSelect($params);
+        $query = $this
+            ->limit($limit)
+            ->offset($page*$limit-$limit)
+            ->disableResetAfterBuild()
+            ->buildSelect($params);
         return array(
             'data'=>$this->run($query, $params)?$this->stmt->fetchAll(PDO::FETCH_ASSOC):array(),
-            'total'=>($total = $this->limit(0)->offset(0)->count(true)),
+            'recordsTotal'=>($total = $this
+                ->enableResetAfterBuild()
+                ->limit(0)
+                ->offset(0)
+                ->count(true)),
             'totalPage'=>$limit>0?ceil($total/$limit):0,
             );
     }
@@ -921,6 +928,7 @@ abstract class AbstractModel extends Prefab
             $state = lcfirst(preg_replace('/^'.$match['en'].'/', '', $method));
             if (property_exists($this, $state) && is_bool($this->{$state}))
                 $this->{$state} = $match['en']=='enable';
+            return $this;
         } else
             throw new Exception(self::E_Method, 1);
     }
