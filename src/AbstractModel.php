@@ -508,7 +508,7 @@ abstract class AbstractModel extends Prefab
      */
     public function messageString()
     {
-        return '<ul><li>'.implode('</li><li>', $this->message).'</li></ul>';
+        return '<ul><li>'.implode('</li><li>', $this->messages?:array()).'</li></ul>';
     }
 
     /**
