@@ -126,7 +126,7 @@ abstract class AbstractModel extends Prefab
      */
     public function save(array $data = array())
     {
-        $this->dry()?$this->insert($data):$this->update($data);
+        return $this->dry()?$this->insert($data):$this->update($data);
     }
 
     /**
@@ -157,8 +157,8 @@ abstract class AbstractModel extends Prefab
         if (!$this->validate($params))
             return false;
 
-        $result = $this->run($query, $params);
-        !$result || $this->assign($params);
+        if ($result = $this->run($query, $params))
+            $this->assign($params);
 
         return $result;
     }
@@ -184,8 +184,8 @@ abstract class AbstractModel extends Prefab
         if (!$this->validate($params))
             return false;
 
-        $result = $this->run($query, $params);
-        !$result || $this->assign($params);
+        if ($result = $this->run($query, $params))
+            $this->assign($params);
 
         return $result;
     }
@@ -537,7 +537,7 @@ abstract class AbstractModel extends Prefab
     *   @param $func callback
     **/
     public function copyfrom($key,$func=NULL) {
-        $var=Instance::get($key);
+        $var=is_array($key)?$key:Instance::get($key);
         if ($func)
             $var=call_user_func($func,$var);
         foreach ($var as $key=>$val)
@@ -931,6 +931,6 @@ abstract class AbstractModel extends Prefab
         $this->schema['pk'] = is_array($pk)?$pk:array($pk);
         if (!array_filter($this->schema['fields'], array($this, 'filterRule')))
             throw new Exception('There is no schema defined', 1);
-        $this->validation = count(array_filter($this->schema['filter'], array($this, 'filterRule')))==0;
+        $this->validation = count(array_filter($this->schema['filter'], array($this, 'filterRule')))>0;
     }
 }
