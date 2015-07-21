@@ -47,7 +47,7 @@ class Validation extends Prefab
 
     public function required($val)
     {
-        return ''!=$val;
+        return !(is_null($val) || ''==$val);
     }
 
     public function alpha($string)
