@@ -508,7 +508,9 @@ abstract class AbstractModel extends Prefab
      */
     public function asList($what)
     {
-        return '<ul><li>'.implode('</li><li>', in_array($what, array('messages', 'errors', 'logs'))?$this->{$what}?:array()).'</li></ul>';
+        return '<ul><li>'.implode('</li><li>',
+            in_array($what, array('messages', 'errors', 'logs'))
+            ?$this->{$what}:array()).'</li></ul>';
     }
 
     /**
