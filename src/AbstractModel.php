@@ -49,7 +49,7 @@ abstract class AbstractModel extends Prefab
     protected $stmt;
 
     const
-        Magic = 'findBy|existsBy|unique|deleteBy|update|having|or|and';
+        Magic = 'findBy|existsBy|unique|deleteBy|update|having';
 
     const
         E_Method = 'Method doesn\'t exists',
@@ -285,22 +285,6 @@ abstract class AbstractModel extends Prefab
     public function find($criteria, array $values = array())
     {
         return $this->where($criteria, $values);
-    }
-
-    /**
-     * Find synonym
-     */
-    public function and($criteria, array $values = array())
-    {
-        return $this->where($criteria, $values);
-    }
-
-    /**
-     * find with or
-     */
-    public function or($criteria, array $values = array())
-    {
-        return $this->where($criteria, $values, 'or');
     }
 
     /**
