@@ -631,6 +631,8 @@ abstract class AbstractModel extends Prefab
      */
     protected function run($query, $params)
     {
+        if (!$query)
+            return false;
         $this->stmt = $this->db()->pdo->prepare($query);
         $this->stmt->execute($params);
         if ($this->stmt->errorCode()!='00000') {
@@ -686,7 +688,7 @@ abstract class AbstractModel extends Prefab
             }
         }
         if (!$where)
-            throw new Exception(self::E_PrimaryKey, 1);
+            return;
         $params = array_merge($params, $where_param);
         $query = rtrim($query, ',').' where '.implode(' and ', $where);
         $this->logs[] = $query;
@@ -713,7 +715,7 @@ abstract class AbstractModel extends Prefab
             }
         }
         if (!$where)
-            throw new Exception(self::E_PrimaryKey, 1);
+            return;
         $criteria = $where_param;
         $query = 'delete from '.$this->table().' where '.implode(' and ', $where);
         $this->logs[] = $query;
