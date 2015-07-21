@@ -299,7 +299,7 @@ abstract class AbstractModel extends Prefab
         !is_array(reset($pk)) || $pk = array_shift($pk);
         $criteria = $values = array();
         foreach ($this->schema['pk'] as $field) {
-            $token = ':'.$field;
+            $token = ':pk_'.$field;
             $criteria[] = $field.'='.$token;
             $values[$token] = isset($pk[$field])?$pk[$field]:array_shift($pk);
         }
