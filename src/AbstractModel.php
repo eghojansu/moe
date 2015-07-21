@@ -127,7 +127,9 @@ abstract class AbstractModel extends Prefab
      */
     public function fetchMode($mode)
     {
-        $this->fetchMode = $mode;
+        ($mode = @constant('PDO::FETCH_'.strtoupper($mode))) ||
+            $mode = PDO::FETCH_ASSOC;
+        $this->mode = $mode;
         return $this;
     }
 
