@@ -185,11 +185,18 @@ abstract class AbstractModel extends Prefab
             throw new Exception(self::E_Data, 1);
 
         $params = array();
+        $values = array_filter($this->schema['values']);
+        $others = array_filter($this->schema['others']);
         foreach ($data as $key => $value)
             if (is_array($value))
                 throw new Exception(self::E_Invalid, 1);
             elseif (isset($this->schema['fields'][$key]))
-                $params[':'.$key] = $value;
+                if (isset($values[$key]) && isset($others[$key])
+                    && $values[$key]==$others[$key]
+                )
+                    continue;
+                else
+                    $params[':'.$key] = $value;
 
         $query = $this->buildUpdate($params, $criteria);
 
