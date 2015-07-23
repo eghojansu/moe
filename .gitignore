@@ -1,0 +1,11 @@
+runtime/*
+vendor/*
+ui/*
+tests/*
+*.mwb.bak
+*.sublime-workspace
+*.sublime-project
+*.lock
+!.gitkeep
+index.php
+.htaccess
