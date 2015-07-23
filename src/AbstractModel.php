@@ -660,7 +660,7 @@ abstract class AbstractModel extends Prefab
     protected function run($query, $params)
     {
         if (!$query)
-            return false;
+            return;
         $this->stmt = $this->db()->pdo->prepare($query);
         $this->stmt->execute($params);
         if ($this->stmt->errorCode()!='00000') {
@@ -696,10 +696,10 @@ abstract class AbstractModel extends Prefab
      */
     protected function buildUpdate(&$params, array $criteria = array())
     {
-        $query  = 'update '.$this->table().' set ';
+        $set = '';
         foreach ($params as $token=>$value) {
             $field = str_replace(':', '', $token);
-            $query .= $field.'='.$token.',';
+            $set .= $field.'='.$token.',';
         }
         $where = $where_param = array();
         if ($criteria) {
@@ -715,10 +715,10 @@ abstract class AbstractModel extends Prefab
                 $where_param[$token] = $this->schema['values'][$field];
             }
         }
-        if (!$where)
+        if (!$where || !$set)
             return;
         $params = array_merge($params, $where_param);
-        $query = rtrim($query, ',').' where '.implode(' and ', $where);
+        $query = 'update '.$this->table().' set '.rtrim($set, ',').' where '.implode(' and ', $where);
         $this->logs[] = $query;
         return $this->lastQuery();
     }
