@@ -1671,6 +1671,21 @@ final class Base extends Prefab implements ArrayAccess {
     }
 
     /**
+     * Option range
+     */
+    public function optionRange($start, $end, $selected = null)
+    {
+	    $result = '';
+	    if ($start <= $end)
+	        for ($i=$start; $i <= $end; $i++)
+	            $result .= '<option value="'.$i.'"'.($i==$selected?' selected':'').'>'.$i.'</option>';
+	    else
+	        for ($i=$start; $i >= $end; $i--)
+	            $result .= '<option value="'.$i.'"'.($i==$selected?' selected':'').'>'.$i.'</option>';
+	    return $result;
+	}
+
+    /**
      * Parse body from PUT method
      * @source https://gist.github.com/chlab/4283560
      *

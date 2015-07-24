@@ -235,7 +235,8 @@ abstract class AbstractModel extends Prefab
      */
     public function cast()
     {
-        return array_merge($this->schema['values'],
+        return array_merge($this->schema['init'],
+                array_filter($this->schema['values'], array($this, 'filterRule')),
                 array_filter($this->schema['others'], array($this, 'filterRule')));
     }
 
@@ -793,7 +794,7 @@ abstract class AbstractModel extends Prefab
 
         if (isset($relation[$this->relation]))
             $relation = array($this->relation=>$relation[$this->relation]);
-        elseif (strpos(',', $this->relation)!==false) {
+        elseif (strpos($this->relation, ',')!==false) {
             $tmp = explode(',', $this->relation);
             foreach ($relation as $key => $value)
                 if (!in_array($key, $tmp))
