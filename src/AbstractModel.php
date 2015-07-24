@@ -474,6 +474,15 @@ abstract class AbstractModel extends Prefab
     }
 
     /**
+     * return field alias
+     */
+    public function field($name)
+    {
+        return isset($this->schema['fields'][$name])?
+            $this->schema['fields'][$name]:null;
+    }
+
+    /**
      * Check weather
      */
     public function dry()
