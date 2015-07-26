@@ -11,8 +11,8 @@ final class Base extends Prefab implements ArrayAccess {
 
 	//@{ Framework details
 	const
-		PACKAGE='Fat-Free Framework',
-		VERSION='3.5.0-Release';
+		PACKAGE='Moe Framework',
+		VERSION='0.2.0-Release';
 	//@}
 
 	//@{ HTTP status codes (RFC 2616)
@@ -66,17 +66,19 @@ final class Base extends Prefab implements ArrayAccess {
 		VERBS='GET|HEAD|POST|PUT|PATCH|DELETE|CONNECT',
 		//! Default directory permissions
 		MODE=0755,
-        //! error template
-        VIEWS = array(
-            'fallback'=>'assets/error.html',
-            '404'=>'assets/404.html',
-            ),
         //! Syntax highlighting stylesheet
-        CSS='assets/code.css',
-        CSS_LAYOUT='assets/error_style.css',
+        CSS='../assets/code.css',
+        CSS_LAYOUT='../assets/error_style.css',
         //! Assets token
         ASSETS_HEAD = 'CSS|HEAD.JS|STYLE|HEAD.SCRIPT.LOAD|HEAD.SCRIPT.READY',
         ASSETS_BODY = 'BODY.JS|BODY.SCRIPT.LOAD|BODY.SCRIPT.READY';
+
+    static
+        //! error template
+        $VIEWS = array(
+            'fallback'=>'../assets/error.html',
+            '404'=>'../assets/404.html',
+            );
 
 	//@{ HTTP request types
 	const
@@ -188,7 +190,7 @@ final class Base extends Prefab implements ArrayAccess {
     /**
      * Site Url
      */
-    public function siteUrl($url, $params = array()) {
+    function siteUrl($url, $params = array()) {
         return $this->hive['BASEURL'] . ltrim(empty($this->hive['ALIASES'][$url])?$url:$this->alias($url, $params), '/');
     }
 
@@ -204,7 +206,7 @@ final class Base extends Prefab implements ArrayAccess {
      * 	CSS : CSS File on head
      * 	STYLE : Style on head
      */
-    public function assets($name, $value)
+    function assets($name, $value)
     {
     	if (!preg_match('#'.preg_quote(self::ASSETS_HEAD.'|'.
     		self::ASSETS_BODY).'#i', $name))
@@ -364,6 +366,9 @@ final class Base extends Prefab implements ArrayAccess {
 			break;
 		case 'TZ':
 			date_default_timezone_set($val);
+			break;
+		case 'DEBUG':
+			!$val || ini_set('display_errors',1);
 			break;
 		}
 		$ref=&$this->ref($key);
@@ -1081,14 +1086,13 @@ final class Base extends Prefab implements ArrayAccess {
 			$headers['X-Requested-With']=='XMLHttpRequest';
 	}
 
-	/**
-	 * return true if request method is post
-	 * @return  bool
-	 */
-	public function isPost()
-	{
-		return strtolower($_SERVER['REQUEST_METHOD'])=='post';
-	}
+    /**
+     * return true if request method is post
+     * @return  bool
+     */
+    function isPost() {
+        return strtolower($_SERVER['REQUEST_METHOD'])=='post';
+    }
 
 	/**
 	*	Sniff IP address
@@ -1185,7 +1189,7 @@ final class Base extends Prefab implements ArrayAccess {
             if ($this->hive['AJAX']) {
                 echo json_encode($this->hive['ERROR']);
             } else {
-                $views = $this->hive['ERROR_VIEWS']+self::VIEWS;
+                $views = $this->hive['ERROR_VIEWS']+self::$VIEWS;
                 isset($views['fallback']) || user_error(self::E_fallback);
                 $view = isset($views[$code])?$views[$code]:$views['fallback'];
                 $this->set('ASSETS.error.code', ($highlight?($this->read($css)):''));
@@ -1617,7 +1621,7 @@ final class Base extends Prefab implements ArrayAccess {
      * @param  boolean $return wether to return content or not
      * @return string or nothing
      */
-    public function send($object, $return = false)
+    function send($object, $return = false)
     {
     	if (is_array($object))
     		$this->sendJson($object);
@@ -1626,44 +1630,15 @@ final class Base extends Prefab implements ArrayAccess {
                 (strpos($object, '.')===false?'.html':'')));
         if ($return)
             return $content;
+
         echo $content;
-    }
-
-    /**
-     * Output the data
-     * @param  mixed  $data
-     * @param  bool $exit wether to exit after dumping or not
-     */
-    public function pre($data, $exit = false)
-    {
-        echo '<pre>';
-        print_r($data);
-        echo '</pre>';
-        !$exit || exit(str_repeat('<br>', 2).' '.$exit);
-        echo '<hr>';
-    }
-
-    /**
-     * Generate random string
-     * @param  int $len random string length
-     * @return string     random string
-     */
-    public function random($len)
-    {
-		$len     = abs($len);
-		$pool    = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-		$poolLen = strlen($pool);
-		$str     = '';
-        while ($len-- > 0)
-        	$str .= substr($pool, rand(0, $poolLen), 1);
-        return $str;
     }
 
     /**
      * Send Json
      * @param  mixed $data data to send
      */
-    public function sendJson($data)
+    function sendJson($data)
     {
         header('Content-Type: application/json');
         echo is_array($data)?json_encode($data):$data;
@@ -1671,27 +1646,12 @@ final class Base extends Prefab implements ArrayAccess {
     }
 
     /**
-     * Option range
-     */
-    public function optionRange($start, $end, $selected = null)
-    {
-	    $result = '';
-	    if ($start <= $end)
-	        for ($i=$start; $i <= $end; $i++)
-	            $result .= '<option value="'.$i.'"'.($i==$selected?' selected':'').'>'.$i.'</option>';
-	    else
-	        for ($i=$start; $i >= $end; $i--)
-	            $result .= '<option value="'.$i.'"'.($i==$selected?' selected':'').'>'.$i.'</option>';
-	    return $result;
-	}
-
-    /**
      * Parse body from PUT method
      * @source https://gist.github.com/chlab/4283560
      *
      * @return array data and files
      */
-    public function parseBody()
+    function parseBody()
     {
         $result = array(
             'data'=>array(),

@@ -1,7 +1,5 @@
 runtime/*
 vendor/*
-ui/*
-tests/*
 *.mwb.bak
 *.sublime-workspace
 *.sublime-project

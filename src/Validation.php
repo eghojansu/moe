@@ -17,9 +17,17 @@ class Validation extends Prefab
         'in_array'=>'{f} must be in ({p})',
         'min_length'=>'{f} minimal {p} character',
         'max_length'=>'{f} maximal {p} character',
+        'min'=>'{f} minimal {p}',
+        'max'=>'{f} maximal {p}',
         'exists'=>'{f} "{v}" was not exists',
         'unique'=>'{f} "{v}" was exists',
         );
+
+    public function __construct()
+    {
+        foreach (Instance::get('validation_message')?:array() as $key => $value)
+            self::addMessage($key, $value);
+    }
 
     public function addMessage($func, $pattern)
     {
@@ -78,6 +86,16 @@ class Validation extends Prefab
     public function max_length($string, $max)
     {
         return is_scalar($string)?strlen($string)<=$max:false;
+    }
+
+    public function min($string, $min)
+    {
+        return is_numeric($string)?$string>=$min:false;
+    }
+
+    public function max($string, $max)
+    {
+        return is_numeric($string)?$string<=$max:false;
     }
 
     public function exists($val, $func)
