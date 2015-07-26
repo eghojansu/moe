@@ -1,0 +1,26 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no' name='viewport' />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<title>404 - Page not found!</title>
+<style>{{ @ASSETS.error.layout.@ASSETS.error.code }}</style>
+</head>
+<body>
+<div class="hc-container">
+	<div class="hc-content">
+		<h1>OOPS! - Could not Find it</h1>
+		<div class="code-error">
+			<span class="text-green">4</span>0<span class="text-green">4</span>
+		</div>
+		<p>{{ @ERROR.text?:@REQUEST }}</p>
+	    <p>
+	    	<a href="{{ @BASEURL }}" class="button">Home</a>
+	    </p>
+	    <check if="{{ @DEBUG }}">
+	    <pre class="trace">{{ @ERROR.trace | decode }}</pre>
+	    </check>
+	</div>
+</div>
+</body>
+</html>

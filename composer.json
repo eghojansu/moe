@@ -8,8 +8,7 @@
 	},
 	"autoload": {
 		"psr-4": {
-			"moe\\":"src/",
-			"tests\\":"tests/"
+			"moe\\":"src/"
 		}
 	},
 	"minimum-stability": "dev"
