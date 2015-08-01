@@ -60,7 +60,10 @@ abstract class AbstractModel extends Prefab
         E_Invalid = 'Invalid parameter',
         E_Query = 'Query error',
         E_Record = 'No record to fetch anymore',
-        E_PrimaryKey = 'Primary key was no defined';
+        E_Schema = 'Schema was no defined',
+        E_PrimaryKey = 'Primary key was no defined',
+        E_Relation = 'Relation key must be table name and (or) its alias',
+        E_NoRelation = 'Relation key "%s" was not exi, $this->relationsts';
 
     /**
      * Returns fields pair with its alias an its filter/sanitizer
@@ -107,11 +110,11 @@ abstract class AbstractModel extends Prefab
     }
 
     /**
-     * Get db instance
+     * Get pdo instance
      */
     public function db()
     {
-        return DB::instance();
+        return DB::instance()->pdo;
     }
 
     /**
@@ -151,9 +154,6 @@ abstract class AbstractModel extends Prefab
             array_filter($this->schema['others'], array($this, 'filterRule')),
             $data);
 
-        if (empty($data))
-            return false;
-
         $params = array();
         foreach ($data as $key => $value)
             if (in_array($key, $this->schema['pk']) && !$value)
@@ -163,12 +163,12 @@ abstract class AbstractModel extends Prefab
             elseif (isset($this->schema['fields'][$key]))
                 $params[':'.$key] = $value;
 
-        if ($update && !$this->schema['pk'])
+        if (empty($params) || ($update && !$this->schema['pk']))
             return false;
 
         $query = $this->buildInsert($params, $update);
 
-        if (!$this->validate($params))
+        if (!($query && $this->validate($params)))
             return false;
 
         if ($result = $this->run($query, $params))
@@ -186,9 +186,6 @@ abstract class AbstractModel extends Prefab
             array_filter($this->schema['others'], array($this, 'filterRule')),
             $data);
 
-        if (empty($data))
-            return false;
-
         $params = array();
         $values = array_filter($this->schema['values']);
         $others = array_filter($this->schema['others']);
@@ -203,9 +200,12 @@ abstract class AbstractModel extends Prefab
                 else
                     $params[':'.$key] = $value;
 
+        if (empty($params))
+            return true;
+
         $query = $this->buildUpdate($params, $criteria);
 
-        if (!$this->validate($params))
+        if (!($query && $this->validate($params)))
             return false;
 
         if ($result = $this->run($query, $params))
@@ -269,7 +269,8 @@ abstract class AbstractModel extends Prefab
     {
         if (!$this->hasError()) {
             $row = $this->stmt->fetch($this->fetchMode);
-            $this->assign($row?:array());
+            $this->assign($row?:array_fill_keys(array_keys(
+                $this->schema['fields']), null));
         }
 
         return $this;
@@ -284,6 +285,14 @@ abstract class AbstractModel extends Prefab
         $query = $this->buildSelect($params);
         $this->run($query, $params);
         return $this->fetch();
+    }
+
+    /**
+     * build select without perform
+     */
+    public function build(&$params = array())
+    {
+        return $this->buildSelect($params);
     }
 
     /**
@@ -359,7 +368,7 @@ abstract class AbstractModel extends Prefab
             $args = array_values($args);
             foreach ($args as $key=>$arg)
                 $this->{$this->schema['pk'][$key]} = $arg;
-            return;
+            return $this;
         }
 
         $pk = array_intersect_key($this->schema['values'],
@@ -396,10 +405,16 @@ abstract class AbstractModel extends Prefab
     {
         $format = $this->pkFormat;
         $pk     = $this->schema['pk'];
-        if (!$format['serial'] || isset($pk[1]))
+        if (!$format['serial'])
             return false;
 
+        if (isset($pk[1]))
+            throw new Exception('This method not designed to work with multiple primary key', 1);
+
         $pk   = array_shift($pk);
+        if (!$pk)
+            throw new Exception(self::E_PrimaryKey, 1);
+
         $last = (int) $this->select(sprintf('right(%s, %s) as last',
                 $pk, $format['serial']))
             ->order($pk.' desc')
@@ -457,13 +472,32 @@ abstract class AbstractModel extends Prefab
     }
 
     /**
+     * Join
+     */
+    public function join($table, $on = '', $mode = '')
+    {
+        $this->select[__FUNCTION__] .= $on?trim($mode).' join '.$table.' on '.$on:$table;
+
+        return $this;
+    }
+
+    /**
      * Where
      */
     public function where($criteria, array $values = array(), $before = 'and')
     {
         $this->select[__FUNCTION__] .= ($this->select[__FUNCTION__]?
             ' '.$before.' ':'').trim($criteria);
-        $this->select['params'] = array_merge($this->select['params'], $values);
+
+        return $this->params($values);
+    }
+
+    /**
+     * Params
+     */
+    public function params(array $params)
+    {
+        $this->select['params'] = array_merge($this->select['params'], $params);
 
         return $this;
     }
@@ -486,9 +520,8 @@ abstract class AbstractModel extends Prefab
     {
         $this->select[__FUNCTION__] .= ($this->select[__FUNCTION__]?
             ' '.$before.' ':'').trim($where);
-        $this->select['params'] = array_merge($this->select['params'], $values);
 
-        return $this;
+        return $this->params($values);
     }
 
     /**
@@ -645,6 +678,7 @@ abstract class AbstractModel extends Prefab
             $var=call_user_func($func,$var);
         foreach ($var as $key=>$val)
             !isset($this->schema['fields'][$key]) || $this->{$key} = $val;
+        return $this;
     }
 
     /**
@@ -658,6 +692,7 @@ abstract class AbstractModel extends Prefab
                  array_filter($this->schema['values'], array($this, 'filterRule')),
                  array_filter($this->schema['others'], array($this, 'filterRule'))) as $key=>$val)
             $var[$key]=$val;
+        return $this;
     }
 
     /**
@@ -733,7 +768,7 @@ abstract class AbstractModel extends Prefab
         if (!$query)
             return;
 
-        $this->stmt = $this->db()->pdo->prepare($query);
+        $this->stmt = $this->db()->prepare($query);
         $this->stmt->execute($params);
         if ($this->stmt->errorCode()!='00000') {
             $this->errors[] = Instance::stringify($this->stmt->errorInfo());
@@ -839,7 +874,7 @@ abstract class AbstractModel extends Prefab
     protected function buildSelect(&$params = array())
     {
         $this->select['select']  || $this->select();
-        $this->select['join'] = $this->buildRelation();
+        $this->select['join'] .= $this->buildRelation();
         $cp     = $this->select;
         $params = $cp['params'];
         unset($cp['params']);
@@ -876,13 +911,13 @@ abstract class AbstractModel extends Prefab
                 if (!in_array($key, $tmp))
                     unset($relation[$key]);
         } elseif ($this->relation!='all')
-            throw new Exception('Relation key "'.$this->relation.'" was not exists', 1);
+            throw new Exception(sprintf(self::E_NoRelation, $this->relation), 1);
 
         $master_table = $this->table();
         $rel = array();
         foreach ($relation as $key => $value) {
             if (is_numeric($key))
-                throw new Exception('Relation key must be table name and (or) its alias', 1);
+                throw new Exception(self::E_Relation, 1);
 
             $tmp = explode(' ', $key);
             $table = $tmp[0];
@@ -1045,6 +1080,8 @@ abstract class AbstractModel extends Prefab
 
     public function __construct()
     {
+        $pk = $this->primaryKey();
+        $this->schema['pk'] = is_array($pk)?$pk:array($pk);
         foreach ($this->schema() as $key => $value) {
             is_array($value) || $value    = array($value);
             $field  = array_shift($value);
@@ -1057,10 +1094,8 @@ abstract class AbstractModel extends Prefab
             $this->schema['init'][$key]   = $init;
             $this->schema['values'][$key] = null;
         }
-        $pk = $this->primaryKey();
-        $this->schema['pk'] = is_array($pk)?$pk:array($pk);
         if (!array_filter($this->schema['fields'], array($this, 'filterRule')))
-            throw new Exception('There is no schema defined', 1);
+            throw new Exception(self::E_Schema, 1);
         $this->validation = count(array_filter($this->schema['filter'], array($this, 'filterRule')))>0;
     }
 }

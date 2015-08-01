@@ -586,7 +586,7 @@ final class Base extends Prefab implements ArrayAccess {
 	**/
 	function merge($key,$src) {
 		$ref=&$this->ref($key);
-		return array_merge($ref,is_string($src)?$this->hive[$src]:$src);
+		return ($ref = array_merge($ref,is_string($src)?$this->hive[$src]:$src));
 	}
 
 	/**
@@ -2293,13 +2293,13 @@ final class Base extends Prefab implements ArrayAccess {
 			'SCHEME'=>$scheme,
 			'SECRETKEY'=>'',
 			'SERIALIZER'=>extension_loaded($ext='igbinary')?$ext:'php',
-			'TEMP'=>'./runtime/',
+			'TEMP'=>'./runtime/temp/',
 			'TEMPLATE'=>'',
 			'TIME'=>microtime(TRUE),
 			'TZ'=>(@ini_get('date.timezone'))?:'UTC',
 			'UI'=>'./',
 			'UNLOAD'=>NULL,
-			'UPLOADS'=>'./',
+			'UPLOADS'=>'./runtime/uploads/',
 			'URI'=>&$_SERVER['REQUEST_URI'],
 			'VERB'=>&$_SERVER['REQUEST_METHOD'],
 			'VERSION'=>self::VERSION,
