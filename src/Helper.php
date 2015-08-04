@@ -5,6 +5,24 @@ namespace moe;
 class Helper
 {
     /**
+     * Convert byte
+     * @return string byte
+     */
+    public static function readByte($byte, $precision = 7)
+    {
+        $unit  = array('Byte','KiB','MiB','GiB','TiB','PiB','EiB','ZiB','YiB');
+
+        if (is_numeric($byte)) {
+            $w = floor((strlen($byte) - 1) / 3);
+            return sprintf("%.{$precision}f %s", $byte/pow(1024, $w), $unit[$w]);
+        }
+
+        $str   = array_values(array_filter(explode(' ', $byte)));
+        return array_shift($str)*pow(1024,
+            (int) array_search(array_shift($str), $unit)).' '.$unit[0];
+    }
+
+    /**
      * Generate random string
      * @param  int $len random string length
      * @return string     random string
