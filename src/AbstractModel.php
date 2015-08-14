@@ -826,7 +826,7 @@ abstract class AbstractModel extends Prefab
     public function buildSelect(&$params = array())
     {
         $this->select['select']  || $this->select();
-        $this->select['join'] .= $this->buildRelation();
+        $this->select['join'] .= PHP_EOL.$this->buildRelation();
         $cp     = $this->select;
         $params = $cp['params'];
         unset($cp['params']);
