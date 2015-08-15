@@ -1078,10 +1078,19 @@ abstract class AbstractModel extends Prefab
         $last = count($columns);
         $newColumns = array();
         for ($i=0; $i < $last; $i++) {
-            $column = $columns[$i].(isset($columns[$i+1])?'_'.$columns[$i+1]:'');
-            $isset  = isset($this->schema['fields'][$column]);
+            $column = $columns[$i];
+            $isset  = false;
+            $skip   = 0;
+            for ($j=$i+1; $j < $last; $j++)
+                if (isset($columns[$j])) {
+                    $column .= '_'.$columns[$j];
+                    if ($isset = isset($this->schema['fields'][$column])) {
+                        $skip = $j-$i;
+                        break;
+                    }
+                }
             $newColumns[] = $isset?$column:$columns[$i];
-            $i += (int) $isset;
+            $i += $skip;
         }
 
         return $newColumns;
