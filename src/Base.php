@@ -12,7 +12,7 @@ final class Base extends Prefab implements ArrayAccess {
 	//@{ Framework details
 	const
 		PACKAGE='Moe Framework',
-		VERSION='0.3.1';
+		VERSION='0.3.2';
 	//@}
 
 	//@{ HTTP status codes (RFC 2616)
