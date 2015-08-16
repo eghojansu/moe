@@ -219,9 +219,7 @@ abstract class AbstractModel extends Prefab
         if ($func)
             $var=call_user_func($func,$var);
         foreach ($var as $key=>$val)
-            (in_array($key, $this->schema['pk']) ||
-                !isset($this->schema['fields'][$key])) ||
-            $this->set($key, $val);
+            !isset($this->schema['fields'][$key]) || $this->set($key, $val);
 
         return $this;
     }
