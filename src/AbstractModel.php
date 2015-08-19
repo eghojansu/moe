@@ -1143,18 +1143,23 @@ abstract class AbstractModel extends Prefab
         $pk = $this->primaryKey();
         $this->schema['pk'] = is_array($pk)?$pk:array($pk);
 
+        $default = array();
         foreach ($this->schema() as $key => $value) {
             is_array($value) || $value    = array($value);
             $field  = array_shift($value);
             $filter = array_shift($value);
                 is_array($filter) || $filter = array($filter);
                 $filter = array_filter($filter, array($this, 'filterRule'));
-            $init   = array_shift($value);
             $this->schema['fields'][$key] = $field;
             $this->schema['filter'][$key] = $filter;
-            $this->schema['init'][$key]   = $init;
             $this->schema['values'][$key] = null;
+            $default[$key]                = array_shift($value);
         }
+
+        foreach ($default as $key => $value)
+            $this->schema['init'][$key] = is_callable($value)?
+                call_user_func($value): (strpos($value, '->')===false?$value:
+                    Instance::call($value));
 
         if (!array_filter($this->schema['fields'], array($this, 'filterRule')))
             throw new Exception(self::E_Schema, 1);
