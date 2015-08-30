@@ -6,4 +6,5 @@ vendor/*
 *.lock
 !.gitkeep
 index.php
+test*.php
 .htaccess
