@@ -65,20 +65,7 @@ final class Base extends Prefab implements ArrayAccess {
 		//! HTTP verbs
 		VERBS='GET|HEAD|POST|PUT|PATCH|DELETE|CONNECT',
 		//! Default directory permissions
-		MODE=0755,
-        //! Syntax highlighting stylesheet
-        CSS='../assets/code.css',
-        CSS_LAYOUT='../assets/error_style.css',
-        //! Assets token
-        ASSETS_HEAD = 'CSS|HEAD.JS|STYLE|HEAD.SCRIPT.LOAD|HEAD.SCRIPT.READY',
-        ASSETS_BODY = 'BODY.JS|BODY.SCRIPT.LOAD|BODY.SCRIPT.READY';
-
-    static
-        //! error template
-        $VIEWS = array(
-            'fallback'=>'../assets/error.html',
-            '404'=>'../assets/404.html',
-            );
+		MODE=0755;
 
 	//@{ HTTP request types
 	const
@@ -96,8 +83,7 @@ final class Base extends Prefab implements ArrayAccess {
 		E_Class='Invalid class %s',
 		E_Method='Invalid method %s',
 		E_Hive='Invalid hive key %s',
-		E_fallback='No error template fallback defined',
-		E_Assets='Invalid assets token %s';
+		E_fallback='No error template fallback defined';
 	//@}
 
 	private
@@ -192,28 +178,6 @@ final class Base extends Prefab implements ArrayAccess {
      */
     function siteUrl($url, $params = array()) {
         return $this->hive['BASEURL'] . ltrim(empty($this->hive['ALIASES'][$url])?$url:$this->alias($url, $params), '/');
-    }
-
-    /**
-     * Assets setter
-     * Token rule see above constants section
-     * Reserved token:
-     * 	HEAD|BODY :  on head/body area
-     * 		JS : JS file
-     * 		SCRIPT : Js Script
-     * 			READY : on js ready
-     * 			LOAD : on load
-     * 	CSS : CSS File on head
-     * 	STYLE : Style on head
-     */
-    function assets($name, $value)
-    {
-    	if (!preg_match('#'.preg_quote(self::ASSETS_HEAD.'|'.
-    		self::ASSETS_BODY).'#i', $name))
-    		user_error(sprintf(self::E_Assets, $name));
-    	$name = 'ASSETS.'.strtoupper($name);
-    	$this->set($name, array_merge($this->get($name)?:array(),
-    		is_array($value)?$value:array($value)));
     }
 
 	/**
@@ -646,6 +610,169 @@ final class Base extends Prefab implements ArrayAccess {
 				return var_export($arg,TRUE);
 		}
 	}
+
+    /**
+     * Convert byte
+     * @return string byte
+     */
+    function readByte($byte, $precision = 7)
+    {
+        $unit  = array('Byte','KiB','MiB','GiB','TiB','PiB','EiB','ZiB','YiB');
+
+        if (is_numeric($byte)) {
+            $w = floor((strlen($byte) - 1) / 3);
+            return sprintf("%.{$precision}f %s", $byte/pow(1024, $w), $unit[$w]);
+        }
+        $str   = array_values(array_filter(explode(' ', $byte)));
+
+        return array_shift($str)*pow(1024,
+            (int) array_search(array_shift($str), $unit)).' '.$unit[0];
+    }
+
+    /**
+     * Generate random string
+     * @param  int $len random string length
+     * @return string     random string
+     */
+    function random($len)
+    {
+        $len     = abs($len);
+        $pool    = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        $poolLen = strlen($pool);
+        $str     = '';
+        while ($len-- > 0)
+            $str .= substr($pool, rand(0, $poolLen), 1);
+
+        return $str;
+    }
+
+    /**
+     * Output the data
+     * @param  mixed  $data
+     * @param  bool $exit wether to exit after dumping or not
+     */
+    function pre($data, $exit = false)
+    {
+        echo '<pre>';
+        print_r($data);
+        echo '</pre>';
+        !$exit || exit(str_repeat('<br>', 2).' '.$exit);
+        echo '<hr>';
+    }
+
+    /**
+     * Generate html list menu
+     * @param  array $menu
+     * @param  string $active active url (token alias)
+     * @return string         ul html
+     */
+    function ulMenu($menu, $active)
+    {
+        $menu || $menu = array();
+        $active = str_replace('@', '', $active);
+        $opt = [
+        	'href'=>'',
+        	'label'=>'',
+        	'class'=>'',
+        	'activeClass'=>'active',
+        	'type'=>'ul',
+        	'child'=>[
+        		'class'=>'',
+        		'li'=>[
+        			'class'=>'',
+        			'attributes'=>[],
+        			],
+        		'a'=>[
+        			'class'=>'',
+        			'attributes'=>[],
+        			],
+        		],
+        	'level'=>-1,
+        	'hide'=>false,
+        	'items'=>[],
+        	];
+        $menu += $opt;
+        $menu['level']++;
+        $eol = PHP_EOL;
+
+        $str = sprintf('<%s class="%s">', $menu['type'], ($menu['level']>0?$menu['child']['class']:$menu['class'])).$eol;
+        $activeClass = $menu['activeClass'];
+
+        foreach ($menu['items'] as $key => $value) {
+        	$value += $opt;
+
+            if ($value['hide'])
+                continue;
+
+            $value['label'] || $value['label'] = $key;
+            $hasChild = count($value['items'])>0;
+            $liAttr   = [
+                'class'=>[$menu['child']['li']['class']],
+                'attributes'=>$menu['child']['a']['attributes'],
+                ];
+            $aAttr    = [
+                'href'=>$value['href']?:($Instance::get('ALIASES.'.$key)?Instance::siteUrl($key):'#'),
+                'class'=>[$menu['child']['a']['class']],
+                'attributes'=>$menu['child']['a']['attributes'],
+                ];
+
+            $child = '';
+            if ($hasChild) {
+                $value['level']  = $menu['level'] + 1;
+                $child = $eol.$this->ulMenu($value, $active).$eol;
+            }
+
+            if ($active === $key || preg_match('/".*'.$activeClass.'.*"/i', $child)) {
+                array_push($liAttr['class'], $child);
+                array_push($aAttr['class'], $child);
+            }
+
+			$attr   = array_pop($liAttr);
+			$liAttr = array_merge($liAttr, $attr);
+			$attr   = array_pop($aAttr);
+			$aAttr  = array_merge($aAttr, $attr);
+
+            $str .= '<li';
+            foreach ($liAttr as $key2 => $value2)
+                !$value2 || $str .= ' '.$key2.'="'.
+                    (is_array($value2)?implode(' ', $value2):$value2).'"';
+            $str .= '><a';
+            foreach ($aAttr as $key2 => $value2)
+                !$value2 || $str .= ' '.$key2.'="'.
+                    (is_array($value2)?implode(' ', $value2):$value2).'"';
+            $str .= '>'.$value['label'].'</a>';
+            $str .= $child;
+            $str .= '</li>'.$eol;
+        }
+        $str .= '</'.$menu['type'].'>';
+
+        return $str;
+    }
+
+    function optionMonth($selected)
+    {
+        $result = '';
+        for ($i=1; $i <= 12; $i++)
+            $result .= '<option value="'.$i.'"'.($i==$selected?' selected':'').
+                '>'.date("F", mktime(0, 0, 0, $i, 10)).'</option>';
+
+        return $result;
+    }
+
+    function optionRange($start, $end, $selected = null)
+    {
+        $result = '';
+        if ($start <= $end)
+            for ($i=$start; $i <= $end; $i++)
+                $result .= '<option value="'.$i.'"'.
+                    ($i==$selected?' selected':'').'>'.$i.'</option>';
+        else
+            for ($i=$start; $i >= $end; $i--)
+                $result .= '<option value="'.$i.'"'.
+                    ($i==$selected?' selected':'').'>'.$i.'</option>';
+
+        return $result;
+    }
 
 	/**
 	*	Flatten array values and return as CSV string
@@ -1164,7 +1291,7 @@ final class Base extends Prefab implements ArrayAccess {
 		$req=$this->hive['VERB'].' '.$this->hive['PATH'];
 		if (!$text)
 			$text='HTTP '.$code.' ('.$req.')';
-		$logger = new Log('error');
+		$logger = new Log($this->hive['ERROR_LOG']);
 		$logger->write($text);
 		$trace=$this->trace($trace);
 		foreach (explode("\n",$trace) as $nexus)
@@ -1172,7 +1299,7 @@ final class Base extends Prefab implements ArrayAccess {
 				$logger->write($nexus);
 		unset($logger);
 		if ($highlight=PHP_SAPI!='cli' && !$this->hive['AJAX'] &&
-			$this->hive['HIGHLIGHT'] && is_file($css=__DIR__.'/'.self::CSS))
+			$this->hive['HIGHLIGHT'] && is_file($css=$this->hive['ERROR_TEMPLATE']['CSS']))
 			$trace=$this->highlight($trace);
 		$this->hive['ERROR']=array(
 			'status'=>$header,
@@ -1189,11 +1316,11 @@ final class Base extends Prefab implements ArrayAccess {
             if ($this->hive['AJAX']) {
                 echo json_encode($this->hive['ERROR']);
             } else {
-                $views = $this->hive['ERROR_VIEWS']+self::$VIEWS;
-                isset($views['fallback']) || user_error(self::E_fallback);
-                $view = isset($views[$code])?$views[$code]:$views['fallback'];
+                $views = $this->hive['ERROR_TEMPLATE'];
+                isset($views['FALLBACK']) || user_error(self::E_fallback);
+                $view = isset($views['E'.$code])?$views['E'.$code]:$views['FALLBACK'];
                 $this->set('ASSETS.error.code', ($highlight?($this->read($css)):''));
-                !(is_file($css=__DIR__.'/'.self::CSS_LAYOUT)) ||
+                !(is_file($css=$this->hive['ERROR_TEMPLATE']['CSS_LAYOUT'])) ||
                 	$this->set('ASSETS.error.layout', $this->read($css));
                 $this->concat('UI', ';'.$this->fixslashes(__DIR__).'/');
                 echo Template::instance()->render($view);
@@ -1507,65 +1634,6 @@ final class Base extends Prefab implements ArrayAccess {
 					if ($this->hive['TEMPLATE']) {
 						$this->hive['RESPONSE'] = $body;
 						$body = $this->send($this->hive['TEMPLATE'], true);
-						$search = array('</head>', '</body>');
-						$replace = array('', '');
-						$eol = "\n";
-						foreach (explode('|', self::ASSETS_HEAD) as $assets) {
-							if (!$assets_list = $this->get('ASSETS.'.$assets))
-								continue;
-							!$replace[0] || $replace[0] .= $eol;
-							switch ($assets) {
-								case 'STYLE':
-								case 'HEAD.SCRIPT.LOAD':
-								case 'HEAD.SCRIPT.READY':
-									$tag = $assets=='STYLE'?'style':'script';
-									$ready = strpos($assets, 'READY')!==false;
-									$replace[0] .= '<'.$tag.'>'.$eol.
-										($ready?'$(document).ready(function(){'.$eol:'').
-										implode($eol, $assets_list).$eol.
-										($ready?'});'.$eol:'').
-										'</'.$tag.'>';
-									break;
-								default:
-									$replace[0] .= $assets='CSS'?
-										'<link rel="stylesheet" href="'.
-											implode('">'.$eol.
-											'<link rel="stylesheet" href="',
-										$assets_list).'">'.$eol:
-										'<script src="'.
-											implode('"></script>'.$eol.
-											'<script src="',
-										$assets_list).'"></script>'.$eol;
-									break;
-							}
-						}
-						foreach (explode('|', self::ASSETS_BODY) as $assets) {
-							if (!$assets_list = $this->get('ASSETS.'.$assets))
-								continue;
-							!$replace[1] || $replace[1] .= $eol;
-							switch ($assets) {
-								case 'BODY.SCRIPT.LOAD':
-								case 'BODY.SCRIPT.READY':
-									$ready = strpos($assets, 'READY')!==false;
-									$replace[1] .= '<script>'.$eol.
-										($ready?'$(document).ready(function(){'.$eol:'').
-										implode($eol, $assets_list).$eol.
-										($ready?'});'.$eol:'').
-										'</script>';
-									break;
-								default:
-									$replace[1] .= '<script src="'.
-											implode('"></script>'.$eol.
-											'<script src="',
-										$assets_list).'"></script>'.$eol;
-									break;
-							}
-						}
-						foreach ($replace as $key => $value)
-							$replace[$key] = str_replace(
-								"</script>\n<script>\n", '', $value).
-								$search[$key];
-						$body = str_replace($search, $replace, $body);
 					}
 					if (isset($cache) && !error_get_last()) {
 						// Save to cache backend
@@ -2254,7 +2322,13 @@ final class Base extends Prefab implements ArrayAccess {
 			'EMOJI'=>array(),
 			'ENCODING'=>$charset,
 			'ERROR'=>NULL,
-			'ERROR_VIEWS'=>array(),
+			'ERROR_LOG'=>'error-'.date('Y-m-d'),
+			'ERROR_TEMPLATE'=>array(
+				'CSS'=>__DIR__.'/../assets/code.css',
+				'CSS_LAYOUT'=>__DIR__.'/../assets/error_style.css',
+	            'FALLBACK'=>'../assets/error.html',
+	            'E404'=>'../assets/404.html',
+				),
 			'ESCAPE'=>TRUE,
 			'EXCEPTION'=>NULL,
 			'EXEMPT'=>NULL,
