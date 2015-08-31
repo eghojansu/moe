@@ -47,11 +47,12 @@ abstract class AbstractModel extends Prefab
         'others' => array(),
         //! select query
         'select' => null,
-        //! switch config
+        //! flag switch config
         'config' => array(
             'validation'      => false,
             'log'             => false,
             'resetAfterBuild' => true,
+            'reUseStatement'  => false,
             ),
         //! fetch mode
         'fetch'  => PDO::FETCH_ASSOC,
@@ -466,7 +467,7 @@ abstract class AbstractModel extends Prefab
      */
     public function find($criteria, array $values = [])
     {
-        return $this->where($criteria, $values)->read(1);
+        return $this->where($criteria, $values)->read();
     }
 
     /**
@@ -486,7 +487,7 @@ abstract class AbstractModel extends Prefab
             $values[$token] = isset($pk[$field])?$pk[$field]:array_shift($pk);
         }
 
-        return $this->find(implode(' and ', $criteria), $values);
+        return $this->limit(1)->find(implode(' and ', $criteria), $values);
     }
 
     /**
@@ -577,7 +578,7 @@ abstract class AbstractModel extends Prefab
     /**
      * Check existance
      */
-    public function exists($criteria = null, array $values = [])
+    public function exists($criteria = null, array $values = array())
     {
         if (!$this->_properties['primary_key'] || (!$values && !$criteria))
             throw new Exception(sprintf(self::E_PrimaryKey, get_called_class()), 1);
@@ -591,7 +592,7 @@ abstract class AbstractModel extends Prefab
     /**
      * Check not existance
      */
-    public function unique($criteria = null, array $values = [])
+    public function unique($criteria = null, array $values = array())
     {
         if (!$this->_properties['primary_key'] || (!$values && !$criteria))
             throw new Exception(sprintf(self::E_PrimaryKey, get_called_class()), 1);
@@ -1038,7 +1039,9 @@ abstract class AbstractModel extends Prefab
             unset($quoted);
         }
 
-        $this->_stmt = $pdo->prepare($query);
+        if (!($this->_schema['config']['reUseStatement'] && $this->_stmt))
+            $this->_stmt = $pdo->prepare($query);
+
         $this->_stmt->execute($params);
         if ($this->_stmt->errorCode()!='00000') {
             $this->_errors[] = Instance::stringify($this->_stmt->errorInfo());
