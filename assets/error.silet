@@ -14,9 +14,9 @@
 	    <p>
 	    	<a href="{{ @BASEURL }}" class="button">Home</a>
 	    </p>
-	    <check if="{{ @DEBUG }}">
-	    <pre class="trace">{{ @ERROR.trace | decode }}</pre>
-	    </check>
+	    %if @DEBUG
+	    	<pre class="trace">{{ @ERROR.trace | decode }}</pre>
+	    %endif
 	</div>
 </div>
 </body>

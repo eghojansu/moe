@@ -1323,7 +1323,7 @@ final class Base extends Prefab implements ArrayAccess {
                 !(is_file($css=$this->hive['ERROR_TEMPLATE']['CSS_LAYOUT'])) ||
                 	$this->set('ASSETS.error.layout', $this->read($css));
                 $this->concat('UI', ';'.$this->fixslashes(__DIR__).'/');
-                echo Template::instance()->render($view);
+                echo Silet::instance()->render($view);
             }
 		if ($this->hive['HALT'])
 			die;
@@ -1694,8 +1694,8 @@ final class Base extends Prefab implements ArrayAccess {
     	if (is_array($object))
     		$this->sendJson($object);
 
-        $content = Template::instance()->render($object.(
-                (strpos($object, '.')===false?'.html':'')));
+        $content = Silet::instance()->render($object.(
+                (strpos($object, '.')===false?'.silet':'')));
         if ($return)
             return $content;
 
@@ -1939,9 +1939,8 @@ final class Base extends Prefab implements ArrayAccess {
 	*	If optional 2nd arg is provided, template strings are interpreted
 	*	@return object
 	*	@param $file string
-	*	@param $allow bool
 	**/
-	function config($file,$allow=FALSE) {
+	function config($file) {
 		preg_match_all(
 			'/(?<=^|\n)(?:'.
 				'\[(?<section>.+?)\]|'.
@@ -1960,12 +1959,6 @@ final class Base extends Prefab implements ArrayAccess {
 						$this->set($msec[0],NULL);
 				}
 				else {
-					if ($allow) {
-						$match['lval']=Preview::instance()->
-							resolve($match['lval']);
-						$match['rval']=Preview::instance()->
-							resolve($match['rval']);
-					}
 					if (preg_match('/^(config|route|map|redirect)s\b/i',
 						$sec,$cmd)) {
 						call_user_func_array(
@@ -2326,8 +2319,8 @@ final class Base extends Prefab implements ArrayAccess {
 			'ERROR_TEMPLATE'=>array(
 				'CSS'=>__DIR__.'/../assets/code.css',
 				'CSS_LAYOUT'=>__DIR__.'/../assets/error_style.css',
-	            'FALLBACK'=>'../assets/error.html',
-	            'E404'=>'../assets/404.html',
+	            'FALLBACK'=>'../assets/error.silet',
+	            'E404'=>'../assets/404.silet',
 				),
 			'ESCAPE'=>TRUE,
 			'EXCEPTION'=>NULL,
