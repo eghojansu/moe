@@ -336,8 +336,8 @@ class Silet extends Prefab
         $in = array();
         for ($ptr=0,$len=strlen($text),$tree=array(),$node=&$tree,
             $stack=array(),$depth=0,$tmp='';$ptr<$len;)
-            if (preg_match('/^%(end)?('.$this->tags.')\b(.*)/i', substr($text,$ptr),$match)) {
-                $single = substr($match[3], strlen($match[3])-1)==='%';
+            if (preg_match('/^@(end)?('.$this->tags.')\b(.*)/i', substr($text,$ptr),$match)) {
+                $single = substr($match[3], strlen($match[3])-1)==='@';
                 !$single || $match[3] = substr($match[3], 0, strlen($match[3])-1);
                 if (strlen($tmp))
                     $node[] = $tmp;
@@ -411,7 +411,7 @@ class Silet extends Prefab
         $as = explode(' as ', $attrib);
         $attrib = array();
         foreach ($as as $key => $value) {
-            $value = explode(';', $value);
+            $value = explode(',', $value);
             foreach ($value as $key2 => $value2)
                 $value[$key2] = trim($value2);
 
