@@ -16,7 +16,23 @@ class Web extends Prefab {
 
 	protected
 		//! HTTP request engine
-		$wrapper;
+		$wrapper,
+		//! imported extension
+		$importExtensions = array(
+	        'gif' => 'data:image/gif',
+	        'png' => 'data:image/png',
+	        'jpe' => 'data:image/jpeg',
+	        'jpg' => 'data:image/jpeg',
+	        'jpeg' => 'data:image/jpeg',
+	        'svg' => 'data:image/svg+xml',
+	        'woff' => 'data:application/x-font-woff',
+	        'woff2' => 'data:application/x-font-woff2',
+	        'eot' => 'data:font/eot',
+	        'ttf' => 'data:font/ttf',
+	        'tif' => 'image/tiff',
+	        'tiff' => 'image/tiff',
+	        'xbm' => 'image/x-xbitmap',
+	    );
 
 	/**
 	*	Detect MIME type using file extension
@@ -550,8 +566,7 @@ class Web extends Prefab {
 						$data='';
 						$src=$fw->read($save);
 						for ($ptr=0,$len=strlen($src);$ptr<$len;) {
-							if (preg_match('/^@import\h+url'.
-								'\(\h*([\'"])(.+?)\1\h*\)[^;]*;/',
+							if (preg_match('/^@import\h+url\(\h*([\'"]?)(.+?)\1\h*\)[^;]*;/',
 								substr($src,$ptr),$parts)) {
 								$path=dirname($file);
 								$data.=$this->minify(
@@ -561,14 +576,33 @@ class Web extends Prefab {
 								$ptr+=strlen($parts[0]);
 								continue;
 							}
-							if ($src[$ptr]=='/') {
-								if ($src[$ptr+1]=='*') {
+							if (preg_match('/^url\(\h*([\'"]?)((?!(["\']?(data|https?):)).+?)\1\h*\)/', substr($src, $ptr), $parts)) {
+								// get the path for the file that will be imported
+				                $path = dirname($save).'/'.preg_replace('/[\?#]{1}.*$/', '', $parts[2]);
+				                $extension = ltrim(strrchr($path, '.'), '.');
+				                // only replace the import with the content if we're able to get
+				                // the content of the file
+				                if (!file_exists($path) || !isset($this->importExtensions[$extension])) {
+					                $ptr += strlen($parts[0]);
+				                    continue;
+				                }
+				                // grab content && base64-ize
+				                $importContent = $fw->read($path);
+				                $importContent = base64_encode($importContent);
+				                // build replacement
+								$data         .= 'url('.$this->importExtensions[$extension].';base64,'.$importContent.')';
+								$importContent = null;
+								$ptr          +=strlen($parts[0]);
+								continue;
+							}
+							if ($src[$ptr]==='/') {
+								if ($src[$ptr+1]==='*') {
 									// Multiline comment
 									$str=strstr(
 										substr($src,$ptr+2),'*/',TRUE);
 									$ptr+=strlen($str)+4;
 								}
-								elseif ($src[$ptr+1]=='/') {
+								elseif ($src[$ptr+1]==='/') {
 									// Single-line comment
 									$str=strstr(
 										substr($src,$ptr+2),"\n",TRUE);
@@ -621,7 +655,7 @@ class Web extends Prefab {
 								while ($ptr<$len) {
 									$data.=$src[$ptr];
 									$ptr++;
-									if ($src[$ptr-1]=='\\') {
+									if ($src[$ptr-1]==='\\') {
 										$data.=$src[$ptr];
 										$ptr++;
 									}
@@ -632,7 +666,7 @@ class Web extends Prefab {
 							}
 							if (ctype_space($src[$ptr])) {
 								if ($ptr+1<strlen($src) &&
-									preg_match('/[\w'.($ext[0]=='css'?
+									preg_match('/[\w'.($ext[0]==='css'?
 										'#\.%+\-*()\[\]':'\$').']{2}|'.
 										'[+\-]{2}/',
 										substr($data,-1).$src[$ptr+1]))
@@ -650,6 +684,7 @@ class Web extends Prefab {
 				}
 		if (PHP_SAPI!='cli' && $header)
 			header('Content-Type: '.$mime.'; charset='.$fw->get('ENCODING'));
+
 		return $dst;
 	}
 
