@@ -177,7 +177,16 @@ final class Base extends Prefab implements ArrayAccess {
      * Site Url
      */
     function siteUrl($url, $params = array()) {
-        return $this->hive['BASEURL'] . ltrim(empty($this->hive['ALIASES'][$url])?$url:$this->alias($url, $params), '/');
+    	$url = str_replace('@', '', $url);
+    	if (!empty($this->hive['PATTERNS'][$url])) {
+			if (!is_array($params))
+				$params = $this->parse($params);
+
+			$params += $this->hive['PARAMS'];
+			$url     = ltrim($this->build($this->hive['PATTERNS'][$url], $params), '/');
+    	}
+
+        return $this->hive['BASEURL'] . $url;
     }
 
 	/**
@@ -674,6 +683,7 @@ final class Base extends Prefab implements ArrayAccess {
         	'href'=>'',
         	'label'=>'',
         	'class'=>'',
+        	'header'=>false,
         	'activeClass'=>'active',
         	'type'=>'ul',
         	'child'=>[
@@ -691,15 +701,18 @@ final class Base extends Prefab implements ArrayAccess {
         	'hide'=>false,
         	'items'=>[],
         	];
-        $menu += $opt;
+        $menu = array_replace_recursive($opt, $menu);
         $menu['level']++;
         $eol = PHP_EOL;
 
         $str = sprintf('<%s class="%s">', $menu['type'], ($menu['level']>0?$menu['child']['class']:$menu['class'])).$eol;
         $activeClass = $menu['activeClass'];
 
+        $opt = $menu;
+        $opt['items'] = [];
         foreach ($menu['items'] as $key => $value) {
-        	$value += $opt;
+        	$value = array_replace_recursive($opt, $value);
+        	$value['level'] = $menu['level'];
 
             if ($value['hide'])
                 continue;
@@ -711,37 +724,46 @@ final class Base extends Prefab implements ArrayAccess {
                 'attributes'=>$menu['child']['a']['attributes'],
                 ];
             $aAttr    = [
-                'href'=>$value['href']?:($Instance::get('ALIASES.'.$key)?Instance::siteUrl($key):'#'),
+                'href'=>$value['href']?:($this->get('ALIASES.'.$key)?$this->siteUrl($key):'#'),
                 'class'=>[$menu['child']['a']['class']],
                 'attributes'=>$menu['child']['a']['attributes'],
                 ];
 
+            !$value['header'] || $liAttr['class'] = [$value['header']];
+
             $child = '';
             if ($hasChild) {
-                $value['level']  = $menu['level'] + 1;
+                $value['level']++;
                 $child = $eol.$this->ulMenu($value, $active).$eol;
             }
 
-            if ($active === $key || preg_match('/".*'.$activeClass.'.*"/i', $child)) {
-                array_push($liAttr['class'], $child);
-                array_push($aAttr['class'], $child);
+            $pushActive = $value['href']?$value['href']===$active:$active===$key;
+
+            if ($pushActive || preg_match('/".*'.$activeClass.'.*"/i', $child)) {
+                array_push($liAttr['class'], $activeClass);
+                array_push($aAttr['class'], $activeClass);
             }
 
 			$attr   = array_pop($liAttr);
-			$liAttr = array_merge($liAttr, $attr);
+			$liAttr = array_merge($liAttr, $attr?:array());
 			$attr   = array_pop($aAttr);
-			$aAttr  = array_merge($aAttr, $attr);
+			$aAttr  = array_merge($aAttr, $attr?:array());
 
             $str .= '<li';
             foreach ($liAttr as $key2 => $value2)
                 !$value2 || $str .= ' '.$key2.'="'.
                     (is_array($value2)?implode(' ', $value2):$value2).'"';
-            $str .= '><a';
-            foreach ($aAttr as $key2 => $value2)
-                !$value2 || $str .= ' '.$key2.'="'.
-                    (is_array($value2)?implode(' ', $value2):$value2).'"';
-            $str .= '>'.$value['label'].'</a>';
-            $str .= $child;
+            $str .= '>';
+            if ($value['header']) {
+            	$str .= $value['label'];
+            } else {
+            	$str .= '<a';
+	            foreach ($aAttr as $key2 => $value2)
+	                !$value2 || $str .= ' '.$key2.'="'.
+	                    (is_array($value2)?implode(' ', $value2):$value2).'"';
+	            $str .= '>'.$value['label'].'</a>';
+            	$str .= $child;
+            }
             $str .= '</li>'.$eol;
         }
         $str .= '</'.$menu['type'].'>';
@@ -1548,6 +1570,7 @@ final class Base extends Prefab implements ArrayAccess {
 				($cors['credentials']?'true':'false'));
 		}
 		$allowed=array();
+		$this->hive['PATTERNS'] = $this->hive['ALIASES'];
 		foreach ($this->hive['ROUTES'] as $pattern=>$routes) {
 			if (!$args=$this->mask($pattern,$req))
 				continue;
@@ -2343,6 +2366,7 @@ final class Base extends Prefab implements ArrayAccess {
 			'PARAMS'=>array(),
 			'PATH'=>$path,
 			'PATTERN'=>NULL,
+			'PATTERNS'=>NULL,
 			'PLUGINS'=>$this->fixslashes(__DIR__).'/',
 			'PORT'=>$port,
 			'PREFIX'=>NULL,

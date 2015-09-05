@@ -330,7 +330,9 @@ abstract class AbstractModel extends Prefab
      */
     public function clear($var)
     {
-        $this->_schema['others'][$var] = null;
+        $vars = Instance::split($var);
+        foreach ($vars as $var)
+            $this->_schema['others'][$var] = null;
 
         return $this;
     }
@@ -413,7 +415,7 @@ abstract class AbstractModel extends Prefab
 
     public function limit($limit)
     {
-        $limit < 1 || $this->_schema['select'][__FUNCTION__] = $limit;
+        $limit < 1 || $this->_schema['select'][__FUNCTION__] = (int) $limit;
 
         return $this;
     }
@@ -449,12 +451,12 @@ abstract class AbstractModel extends Prefab
 
         $cp['select']  = 'select '.trim($cp['select']);
         $cp['from']    = 'from (' .trim($cp['from']).')';
-        !$cp['where']  || $cp['where']  = 'where '          .trim($cp['where']);
-        !$cp['group']  || $cp['group']  = 'group by '       .trim($cp['group']);
-        !$cp['having'] || $cp['having'] = 'having '         .trim($cp['having']);
-        !$cp['order']  || $cp['order']  = 'order by '       .trim($cp['order']);
-        !$cp['limit']  || $cp['limit']  = 'limit '          .trim($cp['limit']);
-        $cp['offset']  = $cp['offset']=== (''?'':'offset ') .trim($cp['offset']);
+        !$cp['where']  || $cp['where']    = 'where '    .trim($cp['where']);
+        !$cp['group']  || $cp['group']    = 'group by ' .trim($cp['group']);
+        !$cp['having'] || $cp['having']   = 'having '   .trim($cp['having']);
+        !$cp['order']  || $cp['order']    = 'order by ' .trim($cp['order']);
+        $cp['limit'] < 1 || $cp['limit']  = 'limit '    .trim($cp['limit']);
+        $cp['offset']  = ($cp['offset']<1?'':'offset ') .trim($cp['offset']);
 
         return array(
             'param'=>array_pop($cp)?:array(),
@@ -862,9 +864,9 @@ abstract class AbstractModel extends Prefab
     /**
      * Set relation to use, can use 'all' or relation key to use all relation
      */
-    public function useRelation($what = 'all')
+    public function useRelation($what = null)
     {
-        $this->relation = $what;
+        $this->relation = $what?:'all';
 
         return $this;
     }
@@ -1128,6 +1130,7 @@ abstract class AbstractModel extends Prefab
             $params   = array();
             $token    = ':'.$column;
             $skip     = 0;
+            $null     = false;
             if (isset($columns[$pointer+1])) {
                 // bisa jadi punc or opr
                 $next = $columns[$pointer+1];
@@ -1176,6 +1179,7 @@ abstract class AbstractModel extends Prefab
                         case 'null':
                             $token    = '';
                             $operator = 'is '.($negation?'not ':'').$next;
+                            $null     = true;;
                             break;
                     }
                 } else
@@ -1187,7 +1191,9 @@ abstract class AbstractModel extends Prefab
                     $punc = $columns[$pointer+2];
                     ++$skip;
                 }
-            } else
+            }
+
+            if (!$null && !$params)
                 $params[$token] = array_shift($args);
 
             $result['criteria'] .= rtrim(' {table}.'.$column.' '.$operator.' '.$token.' '.$punc);
@@ -1195,7 +1201,7 @@ abstract class AbstractModel extends Prefab
             $pointer += $skip;
         }
 
-        $result['criteria'] = preg_replace('/ (and|or)$/i', '', $result['criteria']);
+        $result['criteria'] = '('.trim(preg_replace('/ (and|or)$/i', '', $result['criteria'])).')';
 
         return $result;
     }
